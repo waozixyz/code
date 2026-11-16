@@ -1,0 +1,2952 @@
+diff --git a/build/lib/policies/policyData.jsonc b/build/lib/policies/policyData.jsonc
+index e2326104..7a1a94a4 100644
+--- a/build/lib/policies/policyData.jsonc
++++ b/build/lib/policies/policyData.jsonc
+@@ -1168,44 +1168,2 @@
+         },
+-        {
+-            "key": "telemetry.telemetryLevel",
+-            "name": "TelemetryLevel",
+-            "category": "Telemetry",
+-            "minimumVersion": "1.99",
+-            "localization": {
+-                "description": {
+-                    "key": "telemetry.telemetryLevel.policyDescription",
+-                    "value": "Controls the level of telemetry."
+-                },
+-                "enumDescriptions": [
+-                    {
+-                        "key": "telemetry.telemetryLevel.default",
+-                        "value": "Sends usage data, errors, and crash reports."
+-                    },
+-                    {
+-                        "key": "telemetry.telemetryLevel.error",
+-                        "value": "Sends general error telemetry and crash reports."
+-                    },
+-                    {
+-                        "key": "telemetry.telemetryLevel.crash",
+-                        "value": "Sends OS level crash reports."
+-                    },
+-                    {
+-                        "key": "telemetry.telemetryLevel.off",
+-                        "value": "Disables all product telemetry."
+-                    }
+-                ]
+-            },
+-            "type": "string",
+-            "default": "all",
+-            "enum": [
+-                "all",
+-                "error",
+-                "crash",
+-                "off"
+-            ],
+-            "included": true,
+-            "agentHost": {
+-                "status": "enforced"
+-            }
+-        },
+         {
+diff --git a/build/next/index.ts b/build/next/index.ts
+index c439d777..870f28fb 100644
+--- a/build/next/index.ts
++++ b/build/next/index.ts
+@@ -104,3 +104,2 @@ const desktopEntryPoints = [
+ 	'vs/sessions/sessions.desktop.main',
+-	'vs/workbench/contrib/debug/node/telemetryApp',
+ 	'vs/platform/files/node/watcher/watcherMain',
+diff --git a/extensions/esbuild-common.mts b/extensions/esbuild-common.mts
+index 064ad011..0e56fe01 100644
+--- a/extensions/esbuild-common.mts
++++ b/extensions/esbuild-common.mts
+@@ -61,2 +61,9 @@ export async function runBuild(
+ 
++	// Telemetry and experiments are removed from this build: bundle replacements that send nothing.
++	resolvedOptions.alias = {
++		...resolvedOptions.alias,
++		'@vscode/extension-telemetry': path.join(import.meta.dirname, 'extension-telemetry-removed.mts'),
++		'vscode-tas-client': path.join(import.meta.dirname, 'vscode-tas-client-removed.mts'),
++	};
++
+ 	const isWatch = args.indexOf('--watch') >= 0;
+diff --git a/extensions/extension-telemetry-removed.mts b/extensions/extension-telemetry-removed.mts
+new file mode 100644
+index 00000000..bc845be0
+--- /dev/null
++++ b/extensions/extension-telemetry-removed.mts
+@@ -0,0 +1,35 @@
++/*---------------------------------------------------------------------------------------------
++ *  Copyright (c) Microsoft Corporation. All rights reserved.
++ *  Licensed under the MIT License. See License.txt in the project root for license information.
++ *--------------------------------------------------------------------------------------------*/
++
++// Telemetry is removed from this build. Built-in extensions bundle this module in place of
++// `@vscode/extension-telemetry`, so their reporters exist but nothing is collected or sent.
++
++type TelemetryLevel = 'all' | 'error' | 'crash' | 'off';
++
++interface Disposable {
++	dispose(): void;
++}
++
++function noEvent(_listener: unknown, _thisArgs?: unknown, disposables?: Disposable[]): Disposable {
++	const disposable = { dispose() { } };
++	disposables?.push(disposable);
++	return disposable;
++}
++
++export class TelemetryReporter {
++	readonly telemetryLevel: TelemetryLevel = 'off';
++	readonly onDidChangeTelemetryLevel = noEvent;
++
++	constructor(_connectionString?: string, _replacementOptions?: unknown[]) { }
++
++	sendTelemetryEvent(): void { }
++	sendRawTelemetryEvent(): void { }
++	sendDangerousTelemetryEvent(): void { }
++	sendTelemetryErrorEvent(): void { }
++	sendDangerousTelemetryErrorEvent(): void { }
++	async dispose(): Promise<void> { }
++}
++
++export default TelemetryReporter;
+diff --git a/extensions/vscode-tas-client-removed.mts b/extensions/vscode-tas-client-removed.mts
+new file mode 100644
+index 00000000..7e0e8f69
+--- /dev/null
++++ b/extensions/vscode-tas-client-removed.mts
+@@ -0,0 +1,33 @@
++/*---------------------------------------------------------------------------------------------
++ *  Copyright (c) Microsoft Corporation. All rights reserved.
++ *  Licensed under the MIT License. See License.txt in the project root for license information.
++ *--------------------------------------------------------------------------------------------*/
++
++// Experiments are removed from this build. Built-in extensions bundle this module in place of
++// `vscode-tas-client`, so no assignments are fetched and every flight and treatment is unset.
++
++export enum TargetPopulation {
++	Team = 'team',
++	Internal = 'internal',
++	Insiders = 'insider',
++	Public = 'public',
++}
++
++class RemovedExperimentationService {
++	readonly initializePromise = Promise.resolve();
++	readonly initialFetch = Promise.resolve();
++
++	isFlightEnabled(_flight: string): boolean { return false; }
++	isCachedFlightEnabled(_flight: string): Promise<boolean> { return Promise.resolve(false); }
++	isFlightEnabledAsync(_flight: string): Promise<boolean> { return Promise.resolve(false); }
++	getTreatmentVariable<T>(_configId: string, _name: string): T | undefined { return undefined; }
++	getTreatmentVariableAsync<T>(_configId: string, _name: string): Promise<T | undefined> { return Promise.resolve(undefined); }
++}
++
++export function getExperimentationService(..._args: unknown[]): RemovedExperimentationService {
++	return new RemovedExperimentationService();
++}
++
++export async function getExperimentationServiceAsync(..._args: unknown[]): Promise<RemovedExperimentationService> {
++	return new RemovedExperimentationService();
++}
+diff --git a/package-lock.json b/package-lock.json
+index 34b3d8a2..21f09528 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -14,4 +14,2 @@
+         "@hpke/core": "^1.9.0",
+-        "@microsoft/1ds-core-js": "^3.2.13",
+-        "@microsoft/1ds-post-js": "^3.2.13",
+         "@microsoft/dev-tunnels-connections": "^1.3.61",
+@@ -70,3 +68,2 @@
+         "tar": "^7.5.20",
+-        "tas-client": "0.4.6",
+         "undici": "^7.28.0",
+@@ -1549,39 +1546,2 @@
+     },
+-    "node_modules/@microsoft/1ds-core-js": {
+-      "version": "3.2.13",
+-      "resolved": "https://registry.npmjs.org/@microsoft/1ds-core-js/-/1ds-core-js-3.2.13.tgz",
+-      "integrity": "sha512-CluYTRWcEk0ObG5EWFNWhs87e2qchJUn0p2D21ZUa3PWojPZfPSBs4//WIE0MYV8Qg1Hdif2ZTwlM7TbYUjfAg==",
+-      "dependencies": {
+-        "@microsoft/applicationinsights-core-js": "2.8.15",
+-        "@microsoft/applicationinsights-shims": "^2.0.2",
+-        "@microsoft/dynamicproto-js": "^1.1.7"
+-      }
+-    },
+-    "node_modules/@microsoft/1ds-post-js": {
+-      "version": "3.2.13",
+-      "resolved": "https://registry.npmjs.org/@microsoft/1ds-post-js/-/1ds-post-js-3.2.13.tgz",
+-      "integrity": "sha512-HgS574fdD19Bo2vPguyznL4eDw7Pcm1cVNpvbvBLWiW3x4e1FCQ3VMXChWnAxCae8Hb0XqlA2sz332ZobBavTA==",
+-      "dependencies": {
+-        "@microsoft/1ds-core-js": "3.2.13",
+-        "@microsoft/applicationinsights-shims": "^2.0.2",
+-        "@microsoft/dynamicproto-js": "^1.1.7"
+-      }
+-    },
+-    "node_modules/@microsoft/applicationinsights-core-js": {
+-      "version": "2.8.15",
+-      "resolved": "https://registry.npmjs.org/@microsoft/applicationinsights-core-js/-/applicationinsights-core-js-2.8.15.tgz",
+-      "integrity": "sha512-yYAs9MyjGr2YijQdUSN9mVgT1ijI1FPMgcffpaPmYbHAVbQmF7bXudrBWHxmLzJlwl5rfep+Zgjli2e67lwUqQ==",
+-      "dependencies": {
+-        "@microsoft/applicationinsights-shims": "2.0.2",
+-        "@microsoft/dynamicproto-js": "^1.1.9"
+-      },
+-      "peerDependencies": {
+-        "tslib": "*"
+-      }
+-    },
+-    "node_modules/@microsoft/applicationinsights-shims": {
+-      "version": "2.0.2",
+-      "resolved": "https://registry.npmjs.org/@microsoft/applicationinsights-shims/-/applicationinsights-shims-2.0.2.tgz",
+-      "integrity": "sha512-PoHEgsnmcqruLNHZ/amACqdJ6YYQpED0KSRe6J7gIJTtpZC1FfFU9b1fmDKDKtFoUSrPzEh1qzO3kmRZP0betg=="
+-    },
+     "node_modules/@microsoft/dev-tunnels-connections": {
+@@ -1688,7 +1648,2 @@
+     },
+-    "node_modules/@microsoft/dynamicproto-js": {
+-      "version": "1.1.9",
+-      "resolved": "https://registry.npmjs.org/@microsoft/dynamicproto-js/-/dynamicproto-js-1.1.9.tgz",
+-      "integrity": "sha512-n1VPsljTSkthsAFYdiWfC+DKzK2WwcRp83Y1YAqdX552BstvsDjft9YXppjUzp11BPsapDoO1LDgrDB0XVsfNQ=="
+-    },
+     "node_modules/@modelcontextprotocol/sdk": {
+@@ -18521,11 +18476,2 @@
+     },
+-    "node_modules/tas-client": {
+-      "version": "0.4.6",
+-      "resolved": "https://registry.npmjs.org/tas-client/-/tas-client-0.4.6.tgz",
+-      "integrity": "sha512-mmefC5nu8YZ5zGY4IyeXWnvK6YWv2YCz60/7q5banNU+R8JGZT2Q4lOS4g4xJyvnQIbqBFXzMFPsIitI8kVXqA==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=22"
+-      }
+-    },
+     "node_modules/teex": {
+diff --git a/package.json b/package.json
+index a8e4cb22..f25f7e32 100644
+--- a/package.json
++++ b/package.json
+@@ -96,4 +96,2 @@
+     "@hpke/core": "^1.9.0",
+-    "@microsoft/1ds-core-js": "^3.2.13",
+-    "@microsoft/1ds-post-js": "^3.2.13",
+     "@microsoft/dev-tunnels-connections": "^1.3.61",
+@@ -152,3 +150,2 @@
+     "tar": "^7.5.20",
+-    "tas-client": "0.4.6",
+     "undici": "^7.28.0",
+diff --git a/remote/package-lock.json b/remote/package-lock.json
+index 9f42cfaf..dbbbfa45 100644
+--- a/remote/package-lock.json
++++ b/remote/package-lock.json
+@@ -12,4 +12,2 @@
+         "@hpke/core": "^1.9.0",
+-        "@microsoft/1ds-core-js": "^3.2.13",
+-        "@microsoft/1ds-post-js": "^3.2.13",
+         "@parcel/watcher": "^2.5.6",
+@@ -51,3 +49,2 @@
+         "tar": "^7.5.20",
+-        "tas-client": "0.4.6",
+         "tslib": "^2.6.3",
+@@ -107,44 +104,2 @@
+     },
+-    "node_modules/@microsoft/1ds-core-js": {
+-      "version": "3.2.13",
+-      "resolved": "https://registry.npmjs.org/@microsoft/1ds-core-js/-/1ds-core-js-3.2.13.tgz",
+-      "integrity": "sha512-CluYTRWcEk0ObG5EWFNWhs87e2qchJUn0p2D21ZUa3PWojPZfPSBs4//WIE0MYV8Qg1Hdif2ZTwlM7TbYUjfAg==",
+-      "dependencies": {
+-        "@microsoft/applicationinsights-core-js": "2.8.15",
+-        "@microsoft/applicationinsights-shims": "^2.0.2",
+-        "@microsoft/dynamicproto-js": "^1.1.7"
+-      }
+-    },
+-    "node_modules/@microsoft/1ds-post-js": {
+-      "version": "3.2.13",
+-      "resolved": "https://registry.npmjs.org/@microsoft/1ds-post-js/-/1ds-post-js-3.2.13.tgz",
+-      "integrity": "sha512-HgS574fdD19Bo2vPguyznL4eDw7Pcm1cVNpvbvBLWiW3x4e1FCQ3VMXChWnAxCae8Hb0XqlA2sz332ZobBavTA==",
+-      "dependencies": {
+-        "@microsoft/1ds-core-js": "3.2.13",
+-        "@microsoft/applicationinsights-shims": "^2.0.2",
+-        "@microsoft/dynamicproto-js": "^1.1.7"
+-      }
+-    },
+-    "node_modules/@microsoft/applicationinsights-core-js": {
+-      "version": "2.8.15",
+-      "resolved": "https://registry.npmjs.org/@microsoft/applicationinsights-core-js/-/applicationinsights-core-js-2.8.15.tgz",
+-      "integrity": "sha512-yYAs9MyjGr2YijQdUSN9mVgT1ijI1FPMgcffpaPmYbHAVbQmF7bXudrBWHxmLzJlwl5rfep+Zgjli2e67lwUqQ==",
+-      "dependencies": {
+-        "@microsoft/applicationinsights-shims": "2.0.2",
+-        "@microsoft/dynamicproto-js": "^1.1.9"
+-      },
+-      "peerDependencies": {
+-        "tslib": "*"
+-      }
+-    },
+-    "node_modules/@microsoft/applicationinsights-shims": {
+-      "version": "2.0.2",
+-      "resolved": "https://registry.npmjs.org/@microsoft/applicationinsights-shims/-/applicationinsights-shims-2.0.2.tgz",
+-      "integrity": "sha512-PoHEgsnmcqruLNHZ/amACqdJ6YYQpED0KSRe6J7gIJTtpZC1FfFU9b1fmDKDKtFoUSrPzEh1qzO3kmRZP0betg=="
+-    },
+-    "node_modules/@microsoft/dynamicproto-js": {
+-      "version": "1.1.9",
+-      "resolved": "https://registry.npmjs.org/@microsoft/dynamicproto-js/-/dynamicproto-js-1.1.9.tgz",
+-      "integrity": "sha512-n1VPsljTSkthsAFYdiWfC+DKzK2WwcRp83Y1YAqdX552BstvsDjft9YXppjUzp11BPsapDoO1LDgrDB0XVsfNQ=="
+-    },
+     "node_modules/@parcel/watcher": {
+@@ -1601,11 +1556,2 @@
+     },
+-    "node_modules/tas-client": {
+-      "version": "0.4.6",
+-      "resolved": "https://registry.npmjs.org/tas-client/-/tas-client-0.4.6.tgz",
+-      "integrity": "sha512-mmefC5nu8YZ5zGY4IyeXWnvK6YWv2YCz60/7q5banNU+R8JGZT2Q4lOS4g4xJyvnQIbqBFXzMFPsIitI8kVXqA==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=22"
+-      }
+-    },
+     "node_modules/tslib": {
+diff --git a/remote/package.json b/remote/package.json
+index 3bd77e5a..5c16d819 100644
+--- a/remote/package.json
++++ b/remote/package.json
+@@ -7,4 +7,2 @@
+     "@hpke/core": "^1.9.0",
+-    "@microsoft/1ds-core-js": "^3.2.13",
+-    "@microsoft/1ds-post-js": "^3.2.13",
+     "@parcel/watcher": "^2.5.6",
+@@ -46,3 +44,2 @@
+     "tar": "^7.5.20",
+-    "tas-client": "0.4.6",
+     "tslib": "^2.6.3",
+diff --git a/remote/web/package-lock.json b/remote/web/package-lock.json
+index 80d09c3d..c722983e 100644
+--- a/remote/web/package-lock.json
++++ b/remote/web/package-lock.json
+@@ -10,4 +10,2 @@
+       "dependencies": {
+-        "@microsoft/1ds-core-js": "^3.2.13",
+-        "@microsoft/1ds-post-js": "^3.2.13",
+         "@vscode/codicons": "^0.0.46-46",
+@@ -27,3 +25,2 @@
+         "katex": "^0.16.22",
+-        "tas-client": "0.4.6",
+         "vscode-oniguruma": "1.7.0",
+@@ -32,44 +29,2 @@
+     },
+-    "node_modules/@microsoft/1ds-core-js": {
+-      "version": "3.2.13",
+-      "resolved": "https://registry.npmjs.org/@microsoft/1ds-core-js/-/1ds-core-js-3.2.13.tgz",
+-      "integrity": "sha512-CluYTRWcEk0ObG5EWFNWhs87e2qchJUn0p2D21ZUa3PWojPZfPSBs4//WIE0MYV8Qg1Hdif2ZTwlM7TbYUjfAg==",
+-      "dependencies": {
+-        "@microsoft/applicationinsights-core-js": "2.8.15",
+-        "@microsoft/applicationinsights-shims": "^2.0.2",
+-        "@microsoft/dynamicproto-js": "^1.1.7"
+-      }
+-    },
+-    "node_modules/@microsoft/1ds-post-js": {
+-      "version": "3.2.13",
+-      "resolved": "https://registry.npmjs.org/@microsoft/1ds-post-js/-/1ds-post-js-3.2.13.tgz",
+-      "integrity": "sha512-HgS574fdD19Bo2vPguyznL4eDw7Pcm1cVNpvbvBLWiW3x4e1FCQ3VMXChWnAxCae8Hb0XqlA2sz332ZobBavTA==",
+-      "dependencies": {
+-        "@microsoft/1ds-core-js": "3.2.13",
+-        "@microsoft/applicationinsights-shims": "^2.0.2",
+-        "@microsoft/dynamicproto-js": "^1.1.7"
+-      }
+-    },
+-    "node_modules/@microsoft/applicationinsights-core-js": {
+-      "version": "2.8.15",
+-      "resolved": "https://registry.npmjs.org/@microsoft/applicationinsights-core-js/-/applicationinsights-core-js-2.8.15.tgz",
+-      "integrity": "sha512-yYAs9MyjGr2YijQdUSN9mVgT1ijI1FPMgcffpaPmYbHAVbQmF7bXudrBWHxmLzJlwl5rfep+Zgjli2e67lwUqQ==",
+-      "dependencies": {
+-        "@microsoft/applicationinsights-shims": "2.0.2",
+-        "@microsoft/dynamicproto-js": "^1.1.9"
+-      },
+-      "peerDependencies": {
+-        "tslib": "*"
+-      }
+-    },
+-    "node_modules/@microsoft/applicationinsights-shims": {
+-      "version": "2.0.2",
+-      "resolved": "https://registry.npmjs.org/@microsoft/applicationinsights-shims/-/applicationinsights-shims-2.0.2.tgz",
+-      "integrity": "sha512-PoHEgsnmcqruLNHZ/amACqdJ6YYQpED0KSRe6J7gIJTtpZC1FfFU9b1fmDKDKtFoUSrPzEh1qzO3kmRZP0betg=="
+-    },
+-    "node_modules/@microsoft/dynamicproto-js": {
+-      "version": "1.1.9",
+-      "resolved": "https://registry.npmjs.org/@microsoft/dynamicproto-js/-/dynamicproto-js-1.1.9.tgz",
+-      "integrity": "sha512-n1VPsljTSkthsAFYdiWfC+DKzK2WwcRp83Y1YAqdX552BstvsDjft9YXppjUzp11BPsapDoO1LDgrDB0XVsfNQ=="
+-    },
+     "node_modules/@vscode/codicons": {
+@@ -241,11 +196,2 @@
+     },
+-    "node_modules/tas-client": {
+-      "version": "0.4.6",
+-      "resolved": "https://registry.npmjs.org/tas-client/-/tas-client-0.4.6.tgz",
+-      "integrity": "sha512-mmefC5nu8YZ5zGY4IyeXWnvK6YWv2YCz60/7q5banNU+R8JGZT2Q4lOS4g4xJyvnQIbqBFXzMFPsIitI8kVXqA==",
+-      "license": "MIT",
+-      "engines": {
+-        "node": ">=22"
+-      }
+-    },
+     "node_modules/vscode-oniguruma": {
+diff --git a/remote/web/package.json b/remote/web/package.json
+index e36cba64..a6ea2505 100644
+--- a/remote/web/package.json
++++ b/remote/web/package.json
+@@ -5,4 +5,2 @@
+   "dependencies": {
+-    "@microsoft/1ds-core-js": "^3.2.13",
+-    "@microsoft/1ds-post-js": "^3.2.13",
+     "@vscode/codicons": "^0.0.46-46",
+@@ -22,3 +20,2 @@
+     "katex": "^0.16.22",
+-    "tas-client": "0.4.6",
+     "vscode-oniguruma": "1.7.0",
+diff --git a/src/mainImpl.ts b/src/mainImpl.ts
+index 7ef6ea6d..c5661244 100644
+--- a/src/mainImpl.ts
++++ b/src/mainImpl.ts
+@@ -90,12 +90,6 @@ Menu.setApplicationMenu(null);
+ perf.mark('code/willStartCrashReporter');
+-// If a crash-reporter-directory is specified we store the crash reports
+-// in the specified directory and don't upload them to the crash server.
+-//
+-// Appcenter crash reporting is enabled if
+-// * enable-crash-reporter runtime argument is set to 'true'
+-// * --disable-crash-reporter command line parameter is not set
+-//
+-// Disable crash reporting in all other cases.
+-if (args['crash-reporter-directory'] || (argvConfig['enable-crash-reporter'] && !args['disable-crash-reporter'])) {
+-	configureCrashReporter();
++// Crash reports are only written locally, to a directory given with
++// --crash-reporter-directory. Nothing is ever uploaded.
++if (args['crash-reporter-directory']) {
++	configureCrashReporter(args['crash-reporter-directory']);
+ }
+@@ -423,4 +417,2 @@ interface IArgvConfig {
+ 	readonly 'force-color-profile'?: string;
+-	readonly 'enable-crash-reporter'?: boolean;
+-	readonly 'crash-reporter-id'?: string;
+ 	readonly 'enable-proposed-api'?: string[];
+@@ -503,77 +495,16 @@ function getArgvConfigPath(): string {
+ 
+-function configureCrashReporter(): void {
+-	let crashReporterDirectory = args['crash-reporter-directory'];
+-	let submitURL = '';
+-	if (crashReporterDirectory) {
+-		crashReporterDirectory = path.normalize(crashReporterDirectory);
++function configureCrashReporter(directory: string): void {
++	const crashReporterDirectory = path.normalize(directory);
+ 
+-		if (!path.isAbsolute(crashReporterDirectory)) {
+-			console.error(`The path '${crashReporterDirectory}' specified for --crash-reporter-directory must be absolute.`);
+-			app.exit(1);
+-		}
+-
+-		if (!fs.existsSync(crashReporterDirectory)) {
+-			try {
+-				fs.mkdirSync(crashReporterDirectory, { recursive: true });
+-			} catch (error) {
+-				console.error(`The path '${crashReporterDirectory}' specified for --crash-reporter-directory does not seem to exist or cannot be created.`);
+-				app.exit(1);
+-			}
+-		}
+-
+-		// Crashes are stored in the crashDumps directory by default, so we
+-		// need to change that directory to the provided one
+-		console.log(`Found --crash-reporter-directory argument. Setting crashDumps directory to be '${crashReporterDirectory}'`);
+-		app.setPath('crashDumps', crashReporterDirectory);
++	if (!path.isAbsolute(crashReporterDirectory)) {
++		console.error(`The path '${crashReporterDirectory}' specified for --crash-reporter-directory must be absolute.`);
++		app.exit(1);
+ 	}
+ 
+-	// Otherwise we configure the crash reporter from product.json
+-	else {
+-		const appCenter = product.appCenter;
+-		if (appCenter) {
+-			const isWindows = (process.platform === 'win32');
+-			const isLinux = (process.platform === 'linux');
+-			const isDarwin = (process.platform === 'darwin');
+-			const crashReporterId = argvConfig['crash-reporter-id'];
+-			const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+-			if (crashReporterId && uuidPattern.test(crashReporterId)) {
+-				if (isWindows) {
+-					switch (process.arch) {
+-						case 'x64':
+-							submitURL = appCenter['win32-x64'];
+-							break;
+-						case 'arm64':
+-							submitURL = appCenter['win32-arm64'];
+-							break;
+-					}
+-				} else if (isDarwin) {
+-					if (product.darwinUniversalAssetId) {
+-						submitURL = appCenter['darwin-universal'];
+-					} else {
+-						switch (process.arch) {
+-							case 'x64':
+-								submitURL = appCenter.darwin;
+-								break;
+-							case 'arm64':
+-								submitURL = appCenter['darwin-arm64'];
+-								break;
+-						}
+-					}
+-				} else if (isLinux) {
+-					submitURL = appCenter['linux-x64'];
+-				}
+-				submitURL = submitURL.concat('&uid=', crashReporterId, '&iid=', crashReporterId, '&sid=', crashReporterId);
+-				// Send the id for child node process that are explicitly starting crash reporter.
+-				// For vscode this is ExtensionHost process currently.
+-				const argv = process.argv;
+-				const endOfArgsMarkerIndex = argv.indexOf('--');
+-				if (endOfArgsMarkerIndex === -1) {
+-					argv.push('--crash-reporter-id', crashReporterId);
+-				} else {
+-					// if the we have an argument "--" (end of argument marker)
+-					// we cannot add arguments at the end. rather, we add
+-					// arguments before the "--" marker.
+-					argv.splice(endOfArgsMarkerIndex, 0, '--crash-reporter-id', crashReporterId);
+-				}
+-			}
++	if (!fs.existsSync(crashReporterDirectory)) {
++		try {
++			fs.mkdirSync(crashReporterDirectory, { recursive: true });
++		} catch (error) {
++			console.error(`The path '${crashReporterDirectory}' specified for --crash-reporter-directory does not seem to exist or cannot be created.`);
++			app.exit(1);
+ 		}
+@@ -581,6 +512,9 @@ function configureCrashReporter(): void {
+ 
+-	// Start crash reporter for all processes
++	// Crashes are stored in the crashDumps directory by default, so we
++	// need to change that directory to the provided one
++	console.log(`Found --crash-reporter-directory argument. Setting crashDumps directory to be '${crashReporterDirectory}'`);
++	app.setPath('crashDumps', crashReporterDirectory);
++
+ 	const productName = (product.crashReporter ? product.crashReporter.productName : undefined) || product.nameShort;
+ 	const companyName = (product.crashReporter ? product.crashReporter.companyName : undefined) || 'Microsoft';
+-	const uploadToServer = Boolean(!process.env['VSCODE_DEV'] && submitURL && !crashReporterDirectory);
+ 	crashReporter.start({
+@@ -588,4 +522,3 @@ function configureCrashReporter(): void {
+ 		productName: process.env['VSCODE_DEV'] ? `${productName} Dev` : productName,
+-		submitURL,
+-		uploadToServer,
++		uploadToServer: false,
+ 		compress: true,
+diff --git a/src/vs/code/electron-main/app.ts b/src/vs/code/electron-main/app.ts
+index ca0d6bca..dd1154dc 100644
+--- a/src/vs/code/electron-main/app.ts
++++ b/src/vs/code/electron-main/app.ts
+@@ -8,8 +8,5 @@ import { addUNCHostToAllowlist, disableUNCAccessRestrictions } from '../../base/
+ import { validatedIpcMain } from '../../base/parts/ipc/electron-main/ipcMain.js';
+-import { hostname, release } from 'os';
+ import { initWindowsVersionInfo } from '../../base/node/windowsVersion.js';
+-import { VSBuffer } from '../../base/common/buffer.js';
+ import { toErrorMessage } from '../../base/common/errorMessage.js';
+ import { Event } from '../../base/common/event.js';
+-import { parse } from '../../base/common/jsonc.js';
+ import { getPathLabel } from '../../base/common/labels.js';
+@@ -22,3 +19,2 @@ import { assertType } from '../../base/common/types.js';
+ import { URI } from '../../base/common/uri.js';
+-import { generateUuid } from '../../base/common/uuid.js';
+ import { registerContextMenuListener } from '../../base/parts/contextmenu/electron-main/contextmenu.js';
+@@ -83,7 +79,4 @@ import { StorageDatabaseChannel } from '../../platform/storage/electron-main/sto
+ import { ApplicationStorageMainService, IApplicationStorageMainService, IStorageMainService, StorageMainService } from '../../platform/storage/electron-main/storageMainService.js';
+-import { resolveCommonProperties } from '../../platform/telemetry/common/commonProperties.js';
+ import { ITelemetryService, TelemetryLevel } from '../../platform/telemetry/common/telemetry.js';
+-import { TelemetryAppenderClient } from '../../platform/telemetry/common/telemetryIpc.js';
+-import { ITelemetryServiceConfig, TelemetryService } from '../../platform/telemetry/common/telemetryService.js';
+-import { getPiiPathsFromEnvironment, getTelemetryLevel, getUserContentPathsFromEnvironment, isInternalTelemetry, NullTelemetryService, supportsTelemetry } from '../../platform/telemetry/common/telemetryUtils.js';
++import { NullTelemetryService } from '../../platform/telemetry/common/telemetryUtils.js';
+ import { IUpdateService } from '../../platform/update/common/update.js';
+@@ -154,3 +147,2 @@ import { AgentNetworkFilterService, IAgentNetworkFilterService } from '../../pla
+ import { ITerminalSandboxService, NullTerminalSandboxService } from '../../platform/sandbox/common/terminalSandboxService.js';
+-import ErrorTelemetry from '../../platform/telemetry/electron-main/errorTelemetry.js';
+ import { IProtocolMainService } from '../../platform/protocol/electron-main/protocol.js';
+@@ -756,5 +748,2 @@ export class CodeApplication extends Disposable {
+ 
+-		// Error telemetry
+-		appInstantiationService.invokeFunction(accessor => this._register(new ErrorTelemetry(accessor.get(ILogService), accessor.get(ITelemetryService))));
+-
+ 		// Agent Host
+@@ -1331,16 +1320,4 @@ export class CodeApplication extends Disposable {
+ 
+-		// Telemetry
+-		if (supportsTelemetry(this.productService, this.environmentMainService)) {
+-			const isInternal = isInternalTelemetry(this.productService, this.configurationService);
+-			const channel = getDelayedChannel(sharedProcessReady.then(client => client.getChannel('telemetryAppender')));
+-			const appender = new TelemetryAppenderClient(channel);
+-			const commonProperties = resolveCommonProperties(release(), hostname(), process.arch, this.productService.commit, this.productService.version, machineId, sqmId, devDeviceId, isInternal, this.productService.date);
+-			const piiPaths = getPiiPathsFromEnvironment(this.environmentMainService);
+-			const userContentPaths = getUserContentPathsFromEnvironment(this.environmentMainService);
+-			const config: ITelemetryServiceConfig = { appenders: [appender], commonProperties, piiPaths, userContentPaths, sendErrorTelemetry: true };
+-
+-			services.set(ITelemetryService, new SyncDescriptor(TelemetryService, [config], false));
+-		} else {
+-			services.set(ITelemetryService, NullTelemetryService);
+-		}
++		// Telemetry is removed from this build
++		services.set(ITelemetryService, NullTelemetryService);
+ 
+@@ -1696,5 +1673,2 @@ export class CodeApplication extends Disposable {
+ 
+-		// Crash reporter
+-		this.updateCrashReporterEnablement();
+-
+ 		// macOS: rosetta translation warning
+@@ -1830,48 +1804,2 @@ export class CodeApplication extends Disposable {
+ 
+-	private async updateCrashReporterEnablement(): Promise<void> {
+-
+-		// If enable-crash-reporter argv is undefined then this is a fresh start,
+-		// based on `telemetry.enableCrashreporter` settings, generate a UUID which
+-		// will be used as crash reporter id and also update the json file.
+-
+-		try {
+-			const argvContent = await this.fileService.readFile(this.environmentMainService.argvResource);
+-			const argvString = argvContent.value.toString();
+-			const argvJSON = parse<{ 'enable-crash-reporter'?: boolean }>(argvString);
+-			const telemetryLevel = getTelemetryLevel(this.configurationService);
+-			const enableCrashReporter = telemetryLevel >= TelemetryLevel.CRASH;
+-
+-			// Initial startup
+-			if (argvJSON['enable-crash-reporter'] === undefined) {
+-				const additionalArgvContent = [
+-					'',
+-					'	// Allows to disable crash reporting.',
+-					'	// Should restart the app if the value is changed.',
+-					`	"enable-crash-reporter": ${enableCrashReporter},`,
+-					'',
+-					'	// Unique id used for correlating crash reports sent from this instance.',
+-					'	// Do not edit this value.',
+-					`	"crash-reporter-id": "${generateUuid()}"`,
+-					'}'
+-				];
+-				const newArgvString = argvString.substring(0, argvString.length - 2).concat(',\n', additionalArgvContent.join('\n'));
+-
+-				await this.fileService.writeFile(this.environmentMainService.argvResource, VSBuffer.fromString(newArgvString));
+-			}
+-
+-			// Subsequent startup: update crash reporter value if changed
+-			else {
+-				const newArgvString = argvString.replace(/"enable-crash-reporter": .*,/, `"enable-crash-reporter": ${enableCrashReporter},`);
+-				if (newArgvString !== argvString) {
+-					await this.fileService.writeFile(this.environmentMainService.argvResource, VSBuffer.fromString(newArgvString));
+-				}
+-			}
+-		} catch (error) {
+-			this.logService.error(error);
+-
+-			// Inform the user via notification
+-			this.windowsMainService?.sendToFocused('vscode:showArgvParseWarning');
+-		}
+-	}
+-
+ 	private eventuallyAfterWindowOpen(instantiationService: IInstantiationService): void {
+diff --git a/src/vs/code/electron-utility/sharedProcess/sharedProcessMain.ts b/src/vs/code/electron-utility/sharedProcess/sharedProcessMain.ts
+index cccb1663..9afdb1b7 100644
+--- a/src/vs/code/electron-utility/sharedProcess/sharedProcessMain.ts
++++ b/src/vs/code/electron-utility/sharedProcess/sharedProcessMain.ts
+@@ -5,3 +5,2 @@
+ 
+-import { hostname, release } from 'os';
+ import { MessagePortMain, MessageEvent } from '../../../base/parts/sandbox/node/electronTypes.js';
+@@ -57,9 +56,4 @@ import { ISharedProcessConfiguration } from '../../../platform/sharedProcess/nod
+ import { IStorageService } from '../../../platform/storage/common/storage.js';
+-import { resolveCommonProperties } from '../../../platform/telemetry/common/commonProperties.js';
+-import { ICustomEndpointTelemetryService, ITelemetryService } from '../../../platform/telemetry/common/telemetry.js';
+-import { TelemetryAppenderChannel } from '../../../platform/telemetry/common/telemetryIpc.js';
+-import { TelemetryLogAppender } from '../../../platform/telemetry/common/telemetryLogAppender.js';
+-import { TelemetryService } from '../../../platform/telemetry/common/telemetryService.js';
+-import { supportsTelemetry, ITelemetryAppender, NullAppender, NullTelemetryService, getPiiPathsFromEnvironment, getUserContentPathsFromEnvironment, isInternalTelemetry, isLoggingOnly } from '../../../platform/telemetry/common/telemetryUtils.js';
+-import { CustomEndpointTelemetryService } from '../../../platform/telemetry/node/customEndpointTelemetryService.js';
++import { ITelemetryService } from '../../../platform/telemetry/common/telemetry.js';
++import { NullTelemetryService } from '../../../platform/telemetry/common/telemetryUtils.js';
+ import { ExtensionStorageService, IExtensionStorageService } from '../../../platform/extensionManagement/common/extensionStorage.js';
+@@ -108,3 +102,2 @@ import { IPolicyService, NullPolicyService } from '../../../platform/policy/comm
+ import { UserDataProfilesService } from '../../../platform/userDataProfile/common/userDataProfileIpc.js';
+-import { OneDataSystemAppender } from '../../../platform/telemetry/node/1dsAppender.js';
+ import { UserDataProfilesCleaner } from './contrib/userDataProfilesCleaner.js';
+@@ -334,30 +327,4 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
+ 
+-		// Telemetry
+-		let telemetryService: ITelemetryService;
+-		const appenders: ITelemetryAppender[] = [];
+-		const internalTelemetry = isInternalTelemetry(productService, configurationService);
+-		if (supportsTelemetry(productService, environmentService)) {
+-			const logAppender = new TelemetryLogAppender('', false, loggerService, environmentService, productService);
+-			appenders.push(logAppender);
+-			if (!isLoggingOnly(productService, environmentService) && productService.aiConfig?.ariaKey) {
+-				const collectorAppender = new OneDataSystemAppender(requestService, internalTelemetry, 'monacoworkbench', null, productService.aiConfig.ariaKey);
+-				this._register(toDisposable(() => collectorAppender.flush())); // Ensure the 1DS appender is disposed so that it flushes remaining data
+-				appenders.push(collectorAppender);
+-			}
+-
+-			telemetryService = new TelemetryService({
+-				appenders,
+-				commonProperties: resolveCommonProperties(release(), hostname(), process.arch, productService.commit, productService.version, this.configuration.machineId, this.configuration.sqmId, this.configuration.devDeviceId, internalTelemetry, productService.date),
+-				sendErrorTelemetry: true,
+-				piiPaths: getPiiPathsFromEnvironment(environmentService),
+-				userContentPaths: getUserContentPathsFromEnvironment(environmentService),
+-				meteredConnectionService,
+-			}, configurationService, productService);
+-		} else {
+-			telemetryService = NullTelemetryService;
+-			const nullAppender = NullAppender;
+-			appenders.push(nullAppender);
+-		}
+-
+-		this.server.registerChannel('telemetryAppender', new TelemetryAppenderChannel(appenders));
++		// Telemetry is removed from this build
++		const telemetryService: ITelemetryService = NullTelemetryService;
+ 		services.set(ITelemetryService, telemetryService);
+@@ -365,6 +332,2 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
+ 
+-		// Custom Endpoint Telemetry
+-		const customEndpointTelemetryService = new CustomEndpointTelemetryService(configurationService, telemetryService, loggerService, environmentService, productService);
+-		services.set(ICustomEndpointTelemetryService, customEndpointTelemetryService);
+-
+ 		// Extension Management
+@@ -486,5 +449,2 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
+ 
+-		// Custom Endpoint Telemetry
+-		const customEndpointTelemetryChannel = ProxyChannel.fromService(accessor.get(ICustomEndpointTelemetryService), this._store);
+-		this.server.registerChannel('customEndpointTelemetry', customEndpointTelemetryChannel);
+ 
+diff --git a/src/vs/code/node/cli.ts b/src/vs/code/node/cli.ts
+index 994f6c38..036981ae 100644
+--- a/src/vs/code/node/cli.ts
++++ b/src/vs/code/node/cli.ts
+@@ -39,4 +39,3 @@ function shouldSpawnCliProcess(argv: NativeParsedArgs): boolean {
+ 		|| !!argv['locate-extension']
+-		|| !!argv['add-mcp']
+-		|| !!argv['telemetry'];
++		|| !!argv['add-mcp'];
+ }
+diff --git a/src/vs/code/node/cliProcessMain.ts b/src/vs/code/node/cliProcessMain.ts
+index e2973e07..b44f315d 100644
+--- a/src/vs/code/node/cliProcessMain.ts
++++ b/src/vs/code/node/cliProcessMain.ts
+@@ -7,4 +7,2 @@ import { setDefaultResultOrder } from 'dns';
+ import * as fs from 'fs';
+-import { hostname, release } from 'os';
+-import { raceTimeout } from '../../base/common/async.js';
+ import { toErrorMessage } from '../../base/common/errorMessage.js';
+@@ -50,8 +48,4 @@ import { RequestService } from '../../platform/request/node/requestService.js';
+ import { SaveStrategy, StateReadonlyService } from '../../platform/state/node/stateService.js';
+-import { resolveCommonProperties } from '../../platform/telemetry/common/commonProperties.js';
+ import { ITelemetryService } from '../../platform/telemetry/common/telemetry.js';
+-import { ITelemetryServiceConfig, TelemetryService } from '../../platform/telemetry/common/telemetryService.js';
+-import { supportsTelemetry, NullTelemetryService, getPiiPathsFromEnvironment, getUserContentPathsFromEnvironment, isInternalTelemetry, ITelemetryAppender } from '../../platform/telemetry/common/telemetryUtils.js';
+-import { OneDataSystemAppender } from '../../platform/telemetry/node/1dsAppender.js';
+-import { buildTelemetryMessage } from '../../platform/telemetry/node/telemetry.js';
++import { NullTelemetryService } from '../../platform/telemetry/common/telemetryUtils.js';
+ import { IUriIdentityService } from '../../platform/uriIdentity/common/uriIdentity.js';
+@@ -60,3 +54,2 @@ import { IUserDataProfile, IUserDataProfilesService } from '../../platform/userD
+ import { UserDataProfilesReadonlyService } from '../../platform/userDataProfile/node/userDataProfile.js';
+-import { resolveMachineId, resolveSqmId, resolveDevDeviceId } from '../../platform/telemetry/node/telemetryUtils.js';
+ import { ExtensionsProfileScannerService } from '../../platform/extensionManagement/node/extensionsProfileScannerService.js';
+@@ -99,3 +92,3 @@ class CliMain extends Disposable {
+ 		// Services
+-		const [instantiationService, appenders] = await this.initServices();
++		const instantiationService = await this.initServices();
+ 
+@@ -119,8 +112,2 @@ class CliMain extends Disposable {
+ 			await this.doRun(environmentService, fileService, userDataProfilesService, instantiationService);
+-
+-			// Flush the remaining data in AI adapter (with 1s timeout)
+-			await Promise.all(appenders.map(a => {
+-				raceTimeout(a.flush(), 1000);
+-			}));
+-			return;
+ 		});
+@@ -128,3 +115,3 @@ class CliMain extends Disposable {
+ 
+-	private async initServices(): Promise<[IInstantiationService, ITelemetryAppender[]]> {
++	private async initServices(): Promise<IInstantiationService> {
+ 		const services = new ServiceCollection();
+@@ -204,14 +191,2 @@ class CliMain extends Disposable {
+ 
+-		// Get machine ID
+-		let machineId: string | undefined = undefined;
+-		try {
+-			machineId = await resolveMachineId(stateService, logService);
+-		} catch (error) {
+-			if (error.code !== 'ENOENT') {
+-				logService.error(error);
+-			}
+-		}
+-		const sqmId = await resolveSqmId(stateService, logService);
+-		const devDeviceId = await resolveDevDeviceId(stateService, logService);
+-
+ 		// Initialize user data profiles after initializing the state
+@@ -248,25 +223,6 @@ class CliMain extends Disposable {
+ 
+-		// Telemetry
+-		const appenders: ITelemetryAppender[] = [];
+-		const isInternal = isInternalTelemetry(productService, configurationService);
+-		if (supportsTelemetry(productService, environmentService)) {
+-			if (productService.aiConfig?.ariaKey) {
+-				appenders.push(new OneDataSystemAppender(requestService, isInternal, 'monacoworkbench', null, productService.aiConfig.ariaKey));
+-			}
+-
+-			const config: ITelemetryServiceConfig = {
+-				appenders,
+-				sendErrorTelemetry: false,
+-				commonProperties: resolveCommonProperties(release(), hostname(), process.arch, productService.commit, productService.version, machineId, sqmId, devDeviceId, isInternal, productService.date),
+-				piiPaths: getPiiPathsFromEnvironment(environmentService),
+-				userContentPaths: getUserContentPathsFromEnvironment(environmentService)
+-			};
++		// Telemetry is removed from this build
++		services.set(ITelemetryService, NullTelemetryService);
+ 
+-			services.set(ITelemetryService, new SyncDescriptor(TelemetryService, [config], false));
+-
+-		} else {
+-			services.set(ITelemetryService, NullTelemetryService);
+-		}
+-
+-		return [new InstantiationService(services), appenders];
++		return new InstantiationService(services);
+ 	}
+@@ -344,7 +300,2 @@ class CliMain extends Disposable {
+ 		}
+-
+-		// Telemetry
+-		else if (this.argv['telemetry']) {
+-			console.log(await buildTelemetryMessage(environmentService.appRoot, environmentService.extensionsPath));
+-		}
+ 	}
+diff --git a/src/vs/platform/agentHost/common/agentHostPolicySupport.ts b/src/vs/platform/agentHost/common/agentHostPolicySupport.ts
+index c44940e3..59cb84f0 100644
+--- a/src/vs/platform/agentHost/common/agentHostPolicySupport.ts
++++ b/src/vs/platform/agentHost/common/agentHostPolicySupport.ts
+@@ -159,4 +159,2 @@ export const agentHostPolicySupport: Readonly<Record<string, IAgentHostPolicySup
+ 	CopilotOtelHeaders: { status: 'partial' },
+-	// Mirrored into the root config of every host.
+-	TelemetryLevel: { status: 'enforced' },
+ 
+diff --git a/src/vs/platform/agentHost/node/agentHostMain.ts b/src/vs/platform/agentHost/node/agentHostMain.ts
+index 244519f7..dfe6781f 100644
+--- a/src/vs/platform/agentHost/node/agentHostMain.ts
++++ b/src/vs/platform/agentHost/node/agentHostMain.ts
+@@ -11,3 +11,3 @@ import { isUtilityProcess } from '../../../base/parts/sandbox/node/electronTypes
+ import { Emitter, type Event } from '../../../base/common/event.js';
+-import { DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../base/common/lifecycle.js';
++import { DisposableStore, IDisposable, toDisposable } from '../../../base/common/lifecycle.js';
+ import { isWindows } from '../../../base/common/platform.js';
+@@ -53,3 +53,2 @@ import { AGENT_HOST_CLIENT_PROXY_CHANNEL, createAgentHostClientProxyConnection }
+ import { join } from '../../../base/common/path.js';
+-import ErrorTelemetry from '../../telemetry/node/errorTelemetry.js';
+ import { ITelemetryService } from '../../telemetry/common/telemetry.js';
+@@ -74,3 +73,2 @@ async function startAgentHost(): Promise<void> {
+ 	const protocolHandlers: ProtocolServerHandler[] = [];
+-	const errorTelemetry = disposables.add(new MutableDisposable<ErrorTelemetry>());
+ 
+@@ -140,3 +138,2 @@ async function startAgentHost(): Promise<void> {
+ 		stateManager = runtimeServices.stateManager;
+-		errorTelemetry.value = new ErrorTelemetry(runtimeServices.telemetryService);
+ 		sdkDownloadProgress = runtime.sdkDownloadProgress;
+diff --git a/src/vs/platform/agentHost/node/agentHostServerMain.ts b/src/vs/platform/agentHost/node/agentHostServerMain.ts
+index be84deb5..acdfcb16 100644
+--- a/src/vs/platform/agentHost/node/agentHostServerMain.ts
++++ b/src/vs/platform/agentHost/node/agentHostServerMain.ts
+@@ -17,3 +17,3 @@ import * as fs from 'fs';
+ import * as os from 'os';
+-import { DisposableStore, MutableDisposable } from '../../../base/common/lifecycle.js';
++import { DisposableStore } from '../../../base/common/lifecycle.js';
+ import { URI } from '../../../base/common/uri.js';
+@@ -45,3 +45,2 @@ import { AGENT_CLIENT_SCHEME } from '../common/agentClientUri.js';
+ import { resolveServerUrls } from './serverUrls.js';
+-import ErrorTelemetry from '../../telemetry/node/errorTelemetry.js';
+ import { AgentHostLaunchKind } from '../common/agentHostTelemetry.js';
+@@ -126,3 +125,2 @@ async function main(): Promise<void> {
+ 	const disposables = new DisposableStore();
+-	const errorTelemetry = disposables.add(new MutableDisposable<ErrorTelemetry>());
+ 
+@@ -184,3 +182,2 @@ async function main(): Promise<void> {
+ 	} = runtimeServices;
+-	errorTelemetry.value = new ErrorTelemetry(runtimeServices.telemetryService);
+ 
+diff --git a/src/vs/platform/agentHost/node/agentHostTelemetryService.ts b/src/vs/platform/agentHost/node/agentHostTelemetryService.ts
+index dc99255b..1f3b0dc0 100644
+--- a/src/vs/platform/agentHost/node/agentHostTelemetryService.ts
++++ b/src/vs/platform/agentHost/node/agentHostTelemetryService.ts
+@@ -5,8 +5,4 @@
+ 
+-import { hostname, release } from 'os';
+ import { Disposable, isDisposable, toDisposable, type DisposableStore, type IDisposable } from '../../../base/common/lifecycle.js';
+ import { Emitter, type Event } from '../../../base/common/event.js';
+-import { joinPath } from '../../../base/common/resources.js';
+-import { URI } from '../../../base/common/uri.js';
+-import { getDevDeviceId, getMachineId, getSqmMachineId } from '../../../base/node/id.js';
+ import { INativeEnvironmentService } from '../../environment/common/environment.js';
+@@ -16,13 +12,7 @@ import { IProductService } from '../../product/common/productService.js';
+ import { IRequestService } from '../../request/common/request.js';
+-import { OneDataSystemAppender } from '../../telemetry/node/1dsAppender.js';
+-import { resolveCommonProperties, verifyMicrosoftInternalDomain } from '../../telemetry/common/commonProperties.js';
+ import { ClassifiedEvent, IGDPRProperty, OmitMetadata, StrictPropertyCheck } from '../../telemetry/common/gdprTypings.js';
+ import { ITelemetryData, ITelemetryService, TelemetryLevel } from '../../telemetry/common/telemetry.js';
+-import { TelemetryLogAppender } from '../../telemetry/common/telemetryLogAppender.js';
+-import { TelemetryService } from '../../telemetry/common/telemetryService.js';
+-import { getPiiPathsFromEnvironment, getUserContentPathsFromEnvironment, isLoggingOnly, NullTelemetryService, supportsTelemetry, type ITelemetryAppender } from '../../telemetry/common/telemetryUtils.js';
++import { NullTelemetryService } from '../../telemetry/common/telemetryUtils.js';
+ import { AgentHostTelemetryLevelConfigKey, agentHostConfigValueToTelemetryLevel } from '../common/agentHostSchema.js';
+-import { AgentHostDevDeviceIdEnvKey, AgentHostMachineIdEnvKey, AgentHostSqmIdEnvKey, AgentHostTelemetryLevelEnvKey } from '../common/agentHostTelemetryEnv.js';
+-import { AgentHostRestrictedTelemetrySender, IAgentHostRestrictedTelemetry, IAgentHostInternalTelemetryContext, IAgentHostRestrictedTelemetryContext, TelemetryMeasurements, TelemetryProps } from './agentHostRestrictedTelemetry.js';
+-import { AgentHostInternalTelemetrySender } from './agentHostMicrosoftTelemetry.js';
++import { IAgentHostRestrictedTelemetry, IAgentHostInternalTelemetryContext, IAgentHostRestrictedTelemetryContext, TelemetryMeasurements, TelemetryProps } from './agentHostRestrictedTelemetry.js';
+ import type { IAgentTelemetryContext } from '../common/agent.js';
+@@ -257,69 +247,5 @@ export function isAgentHostTelemetryService(telemetryService: ITelemetryService)
+ 
+-async function resolveCopilotExtensionVersion(environmentService: INativeEnvironmentService, fileService: IFileService, logService: ILogService): Promise<string | undefined> {
+-	if (!environmentService.builtinExtensionsPath) {
+-		return undefined;
+-	}
+-	try {
+-		const manifest = JSON.parse((await fileService.readFile(joinPath(URI.file(environmentService.builtinExtensionsPath), 'copilot', 'package.json'))).value.toString()) as { version?: unknown };
+-		return typeof manifest.version === 'string' ? manifest.version : undefined;
+-	} catch (error) {
+-		logService.debug(`[agentHostTelemetry] Failed to resolve Copilot extension version: ${error instanceof Error ? error.message : String(error)}`);
+-		return undefined;
+-	}
+-}
+-
++// Telemetry is removed from this build: the agent host always reports no telemetry.
+ export async function createAgentHostTelemetryService(options: IAgentHostTelemetryServiceOptions): Promise<IAgentHostTelemetryService> {
+-	const { environmentService, productService, fileService, loggerService, logService, disposables } = options;
+-	if (options.disableTelemetry || !loggerService || !supportsTelemetry(productService, environmentService)) {
+-		return disposables.add(new AgentHostTelemetryService(NullTelemetryService));
+-	}
+-
+-	const initialTelemetryLevel = Math.min(
+-		parseLaunchTelemetryLevel(environmentService.args?.['telemetry-level']),
+-		parseLaunchTelemetryLevel((options.readTelemetryLevelEnvironment ?? (() => process.env[AgentHostTelemetryLevelEnvKey]))()),
+-	);
+-	const internalTelemetry = verifyMicrosoftInternalDomain(productService.msftInternalDomains ?? []);
+-
+-	const appenders: ITelemetryAppender[] = [
+-		disposables.add(new TelemetryLogAppender({ prefix: '', loggerId: 'agentHostTelemetry' }, false, loggerService, environmentService, productService)),
+-	];
+-	const loggingOnly = isLoggingOnly(productService, environmentService);
+-	if (!loggingOnly && productService.aiConfig?.ariaKey) {
+-		const collectorAppender = new OneDataSystemAppender(options.requestService, internalTelemetry, 'monacoworkbench', null, productService.aiConfig.ariaKey);
+-		disposables.add(toDisposable(() => { void collectorAppender.flush(); }));
+-		appenders.push(collectorAppender);
+-	}
+-
+-	// Prefer the host-forwarded identifiers (see `agentHostTelemetryEnv`) so the
+-	// agent host reports the same persisted machineId/sqmId/devDeviceId as the
+-	// workbench. Fall back to computing them live when not provided (e.g. the
+-	// remote/server agent host, which does not forward them).
+-	const [machineId, sqmId, devDeviceId] = await Promise.all([
+-		process.env[AgentHostMachineIdEnvKey] || getMachineId(error => logService.error(error)),
+-		process.env[AgentHostSqmIdEnvKey] || getSqmMachineId(error => logService.error(error)),
+-		process.env[AgentHostDevDeviceIdEnvKey] || getDevDeviceId(error => logService.error(error)),
+-	]);
+-
+-	const commonProperties = resolveCommonProperties(release(), hostname(), process.arch, productService.commit, productService.version, machineId, sqmId, devDeviceId, internalTelemetry, productService.date);
+-
+-	const telemetryService = TelemetryService.createWithLevel({
+-		appenders,
+-		sendErrorTelemetry: true,
+-		commonProperties,
+-		piiPaths: getPiiPathsFromEnvironment(environmentService),
+-		userContentPaths: getUserContentPathsFromEnvironment(environmentService),
+-		telemetryLevel: initialTelemetryLevel,
+-	}, productService);
+-
+-	const extensionVersion = loggingOnly ? undefined : await resolveCopilotExtensionVersion(environmentService, fileService, logService);
+-	const internalSender = loggingOnly ? undefined : disposables.add(new AgentHostInternalTelemetrySender({ requestService: options.requestService, commonProperties, extensionVersion }));
+-	const restricted = loggingOnly ? undefined : new AgentHostRestrictedTelemetrySender(commonProperties, logService, undefined, internalSender, options.fetchFn);
+-
+-	return disposables.add(new AgentHostTelemetryService(telemetryService, restricted, productService.copilotVersions?.sdk, productService.copilotVersions?.runtime, initialTelemetryLevel));
+-}
+-
+-function parseLaunchTelemetryLevel(value: string | undefined): TelemetryLevel {
+-	return value === undefined
+-		? TelemetryLevel.USAGE
+-		: agentHostConfigValueToTelemetryLevel(value) ?? TelemetryLevel.NONE;
++	return options.disposables.add(new AgentHostTelemetryService(NullTelemetryService, undefined, undefined, undefined, TelemetryLevel.NONE));
+ }
+diff --git a/src/vs/platform/assignment/common/assignment.ts b/src/vs/platform/assignment/common/assignment.ts
+index 4423bb56..c1ee31f5 100644
+--- a/src/vs/platform/assignment/common/assignment.ts
++++ b/src/vs/platform/assignment/common/assignment.ts
+@@ -6,7 +6,2 @@
+ import { Event } from '../../../base/common/event.js';
+-import * as platform from '../../../base/common/platform.js';
+-import type { IExperimentationFilterProvider } from 'tas-client';
+-
+-export const ASSIGNMENT_STORAGE_KEY = 'VSCode.ABExp.FeatureData';
+-export const ASSIGNMENT_REFETCH_INTERVAL = 60 * 60 * 1000; // 1 hour
+ 
+@@ -19,237 +14,2 @@ export interface IAssignmentService {
+ 
+-export enum TargetPopulation {
+-	Insiders = 'insider',
+-	Public = 'public',
+-	Exploration = 'exploration'
+-}
+-
+-/*
+-Based upon the official VSCode currently existing filters in the
+-ExP backend for the VSCode cluster.
+-https://experimentation.visualstudio.com/Analysis%20and%20Experimentation/_git/AnE.ExP.TAS.TachyonHost.Configuration?path=%2FConfigurations%2Fvscode%2Fvscode.json&version=GBmaster
+-"X-MSEdge-Market": "detection.market",
+-"X-FD-Corpnet": "detection.corpnet",
+-"X-VSCode-AppVersion": "appversion",
+-"X-VSCode-Build": "build",
+-"X-MSEdge-ClientId": "clientid",
+-"X-VSCode-ExtensionName": "extensionname",
+-"X-VSCode-ExtensionVersion": "extensionversion",
+-"X-VSCode-TargetPopulation": "targetpopulation",
+-"X-VSCode-Language": "language",
+-"X-VSCode-Platform": "platform",
+-"X-VSCode-ReleaseDate": "releasedate",
+-"X-VSCode-WindowKind": "windowkind"
+-*/
+-export enum Filters {
+-	/**
+-	 * The market in which the extension is distributed.
+-	 */
+-	Market = 'X-MSEdge-Market',
+-
+-	/**
+-	 * The corporation network.
+-	 */
+-	CorpNet = 'X-FD-Corpnet',
+-
+-	/**
+-	 * Version of the application which uses experimentation service.
+-	 */
+-	ApplicationVersion = 'X-VSCode-AppVersion',
+-
+-	/**
+-	 * Insiders vs Stable.
+-	 */
+-	Build = 'X-VSCode-Build',
+-
+-	/**
+-	 * Client Id which is used as primary unit for the experimentation.
+-	 */
+-	ClientId = 'X-MSEdge-ClientId',
+-
+-	/**
+-	 * Developer Device Id which can be used as an alternate unit for experimentation.
+-	 */
+-	DeveloperDeviceId = 'X-VSCode-DevDeviceId',
+-
+-	/**
+-	 * Extension header.
+-	 */
+-	ExtensionName = 'X-VSCode-ExtensionName',
+-
+-	/**
+-	 * The version of the extension.
+-	 */
+-	ExtensionVersion = 'X-VSCode-ExtensionVersion',
+-
+-	/**
+-	 * The language in use by VS Code
+-	 */
+-	Language = 'X-VSCode-Language',
+-
+-	/**
+-	 * The target population.
+-	 * This is used to separate internal, early preview, GA, etc.
+-	 */
+-	TargetPopulation = 'X-VSCode-TargetPopulation',
+-
+-	/**
+-	 * The platform (OS) on which VS Code is running.
+-	 */
+-	Platform = 'X-VSCode-Platform',
+-
+-	/**
+-	 * The release/build date of VS Code (UTC) in the format yyyymmddHH.
+-	 */
+-	ReleaseDate = 'X-VSCode-ReleaseDate',
+-
+-	/**
+-	 * The kind of window VS Code is running in (`editor` or `agents`).
+-	 */
+-	WindowKind = 'X-VSCode-WindowKind',
+-}
+-
+-export const enum WindowKind {
+-	Editor = 'editor',
+-	Agents = 'agents',
+-}
+-
+-export class AssignmentFilterProvider implements IExperimentationFilterProvider {
+-	constructor(
+-		private version: string,
+-		private appName: string,
+-		private machineId: string,
+-		private devDeviceId: string,
+-		private targetPopulation: TargetPopulation,
+-		private releaseDate: string,
+-		private windowKind: WindowKind
+-	) { }
+-
+-	getFilterValue(filter: string): string | null {
+-		switch (filter) {
+-			case Filters.ApplicationVersion:
+-				return trimVersionSuffix(this.version); // productService.version
+-			case Filters.Build:
+-				return this.appName; // productService.nameLong
+-			case Filters.ClientId:
+-				return this.machineId;
+-			case Filters.DeveloperDeviceId:
+-				return this.devDeviceId;
+-			case Filters.Language:
+-				return platform.language;
+-			case Filters.ExtensionName:
+-				return 'vscode-core'; // always return vscode-core for exp service
+-			case Filters.ExtensionVersion:
+-				return '999999.0'; // always return a very large number for cross-extension experimentation
+-			case Filters.TargetPopulation:
+-				return this.targetPopulation;
+-			case Filters.Platform:
+-				return platform.PlatformToString(platform.platform);
+-			case Filters.ReleaseDate:
+-				return formatReleaseDate(this.releaseDate);
+-			case Filters.WindowKind:
+-				return this.windowKind;
+-			default:
+-				return '';
+-		}
+-	}
+-
+-	getFilters(): Map<string, unknown> {
+-		const filters: Map<string, unknown> = new Map<string, unknown>();
+-		const filterValues = Object.values(Filters);
+-		for (const value of filterValues) {
+-			filters.set(value, this.getFilterValue(value));
+-		}
+-
+-		return filters;
+-	}
+-}
+-
+-/**
+- * Trims a TAS-incompatible version suffix (e.g. `-insider`) so the value can be parsed
+- * into a .NET Build object by the experimentation backend.
+- */
+-function trimVersionSuffix(version: string): string {
+-	return version.split(/\-[a-zA-Z0-9]+$/)[0];
+-}
+-
+-/**
+- * Formats an ISO release date into the `yyyymmddHH` form the experimentation backend
+- * expects (10 digits: yyyymmddHH). Returns an empty string when unavailable.
+- */
+-function formatReleaseDate(iso: string): string {
+-	if (!iso) {
+-		return '';
+-	}
+-	const match = /^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2})/.exec(iso);
+-	if (!match) {
+-		return '';
+-	}
+-	return match.slice(1, 5).join('');
+-}
+-
+-/**
+- * userParam names for the new TAS assignments API (POST /api/v1/assignments), emitted by
+- * {@link VSCodeCoreAssignmentsFilterProvider}. These replace the legacy header keys and
+- * are sent only to the new endpoint.
+- */
+-export enum AssignmentsFilters {
+-	ApplicationVersion = 'vscode_core_appversion',
+-	Build = 'vscode_core_build',
+-	DeveloperDeviceId = 'devdeviceid',
+-	ExtensionName = 'vscode_core_extensionname',
+-	ExtensionNameShort = 'extensionname',
+-	TargetPopulation = 'vscode_core_targetpopulation',
+-	Platform = 'vscode_core_platform',
+-	ReleaseDate = 'vscode_core_releasedate',
+-	WindowKind = 'vscode_core_windowkind',
+-}
+-
+-/**
+- * Emits the generic VS Code core filters for the new TAS assignments API using the new
+- * userParam key names, so the assignments endpoint never receives the legacy header keys.
+- */
+-export class VSCodeCoreAssignmentsFilterProvider implements IExperimentationFilterProvider {
+-	constructor(
+-		private version: string,
+-		private appName: string,
+-		private devDeviceId: string,
+-		private targetPopulation: TargetPopulation,
+-		private releaseDate: string,
+-		private windowKind: WindowKind
+-	) { }
+-
+-	getFilterValue(filter: string): string | null {
+-		switch (filter) {
+-			case AssignmentsFilters.ApplicationVersion:
+-				return trimVersionSuffix(this.version);
+-			case AssignmentsFilters.Build:
+-				return this.appName;
+-			case AssignmentsFilters.DeveloperDeviceId:
+-				return this.devDeviceId;
+-			case AssignmentsFilters.ExtensionName:
+-			case AssignmentsFilters.ExtensionNameShort:
+-				return 'vscode-core';
+-			case AssignmentsFilters.TargetPopulation:
+-				return this.targetPopulation;
+-			case AssignmentsFilters.Platform:
+-				return platform.PlatformToString(platform.platform);
+-			case AssignmentsFilters.ReleaseDate:
+-				return formatReleaseDate(this.releaseDate);
+-			case AssignmentsFilters.WindowKind:
+-				return this.windowKind;
+-			default:
+-				return null;
+-		}
+-	}
+-
+-	getFilters(): Map<string, unknown> {
+-		const filters: Map<string, unknown> = new Map<string, unknown>();
+-		for (const value of Object.values(AssignmentsFilters)) {
+-			filters.set(value, this.getFilterValue(value));
+-		}
+-
+-		return filters;
+-	}
+-}
+-
+ export function getInternalOrg(organisations: readonly string[] | undefined): 'vscode' | 'github' | 'microsoft' | undefined {
+@@ -261,3 +21,3 @@ export function getInternalOrg(organisations: readonly string[] | undefined): 'v
+ 
+-/** Whether the account is staff or belongs to an internal org; the machine half is `verifyMicrosoftInternalDomain`. */
++/** Whether the account is staff or belongs to an internal org. */
+ export function isInternalAccount(isStaff: boolean | undefined, organisations: readonly string[] | undefined): boolean {
+diff --git a/src/vs/platform/environment/common/argv.ts b/src/vs/platform/environment/common/argv.ts
+index f6108fb1..d885fa2b 100644
+--- a/src/vs/platform/environment/common/argv.ts
++++ b/src/vs/platform/environment/common/argv.ts
+@@ -45,3 +45,2 @@ export interface NativeParsedArgs {
+ 	version?: boolean;
+-	telemetry?: boolean;
+ 	status?: boolean;
+@@ -127,3 +126,2 @@ export interface NativeParsedArgs {
+ 	'crash-reporter-directory'?: string;
+-	'crash-reporter-id'?: string;
+ 	'skip-add-to-recently-opened'?: boolean;
+diff --git a/src/vs/platform/environment/common/environmentService.ts b/src/vs/platform/environment/common/environmentService.ts
+index 004d0614..08b4ad7a 100644
+--- a/src/vs/platform/environment/common/environmentService.ts
++++ b/src/vs/platform/environment/common/environmentService.ts
+@@ -250,3 +250,2 @@ export abstract class AbstractNativeEnvironmentService implements INativeEnviron
+ 
+-	get crashReporterId(): string | undefined { return this.args['crash-reporter-id']; }
+ 	get crashReporterDirectory(): string | undefined { return this.args['crash-reporter-directory']; }
+diff --git a/src/vs/platform/environment/node/argv.ts b/src/vs/platform/environment/node/argv.ts
+index 5077e95f..2f961b5f 100644
+--- a/src/vs/platform/environment/node/argv.ts
++++ b/src/vs/platform/environment/node/argv.ts
+@@ -159,3 +159,2 @@ export const OPTIONS: OptionDescriptions<Required<NativeParsedArgs>> = {
+ 	'locate-shell-integration-path': { type: 'string', cat: 't', args: ['shell'], description: localize('locateShellIntegrationPath', "Print the path to a terminal shell integration script. Allowed values are 'bash', 'pwsh', 'zsh' or 'fish'.") },
+-	'telemetry': { type: 'boolean', cat: 't', description: localize('telemetry', "Shows all telemetry events which VS code collects.") },
+ 
+@@ -197,3 +196,2 @@ export const OPTIONS: OptionDescriptions<Required<NativeParsedArgs>> = {
+ 	'crash-reporter-directory': { type: 'string' },
+-	'crash-reporter-id': { type: 'string' },
+ 	'skip-add-to-recently-opened': { type: 'boolean' },
+diff --git a/src/vs/platform/telemetry/common/errorTelemetry.ts b/src/vs/platform/telemetry/common/errorTelemetry.ts
+index cdb522a1..2b07af30 100644
+--- a/src/vs/platform/telemetry/common/errorTelemetry.ts
++++ b/src/vs/platform/telemetry/common/errorTelemetry.ts
+@@ -5,9 +5,3 @@
+ 
+-import { binarySearch } from '../../../base/common/arrays.js';
+-import { errorHandler, ErrorNoTelemetry, PendingMigrationError } from '../../../base/common/errors.js';
+-import { ListenerLeakError } from '../../../base/common/event.js';
+-import { DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
+ import { safeStringify } from '../../../base/common/objects.js';
+-import { FileOperationError } from '../../files/common/files.js';
+-import { ITelemetryService } from './telemetry.js';
+ 
+@@ -26,20 +20,2 @@ export type ErrorEventFragment = {
+ 
+-type ListenerLeakDiagEvent = {
+-	kind?: string;
+-	listenerCount?: number;
+-};
+-
+-type ListenerLeakDiagFragment = {
+-	kind?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Whether the leak is dominated by a single subscriber or popular among many.' };
+-	listenerCount?: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Number of listeners on the emitter when the leak was detected.' };
+-};
+-
+-type UnhandledErrorEvent = ErrorEvent & ListenerLeakDiagEvent & {
+-	copilotSku?: string;
+-};
+-
+-type UnhandledErrorClassification = ErrorEventFragment & ListenerLeakDiagFragment & {
+-	copilotSku?: { classification: 'SystemMetaData'; purpose: 'FeatureInsight'; comment: 'The raw Copilot entitlement SKU for the authenticated GitHub account.' };
+-};
+-
+ export interface ErrorEvent {
+@@ -79,102 +55 @@ export function packErrorForTelemetry(err: any): { callstack: string | undefined
+ }
+-
+-export default abstract class BaseErrorTelemetry {
+-
+-	public static ERROR_FLUSH_TIMEOUT: number = 5 * 1000;
+-
+-	private _telemetryService: ITelemetryService;
+-	private _flushDelay: number;
+-	private _flushHandle: Timeout | undefined = undefined;
+-	private _buffer: ErrorEvent[] = [];
+-	protected readonly _disposables = new DisposableStore();
+-
+-	constructor(telemetryService: ITelemetryService, flushDelay = BaseErrorTelemetry.ERROR_FLUSH_TIMEOUT) {
+-		this._telemetryService = telemetryService;
+-		this._flushDelay = flushDelay;
+-
+-		// (1) check for unexpected but handled errors
+-		const unbind = errorHandler.addListener((err) => this._onErrorEvent(err));
+-		this._disposables.add(toDisposable(unbind));
+-
+-		// (2) install implementation-specific error listeners
+-		this.installErrorListeners();
+-	}
+-
+-	dispose() {
+-		clearTimeout(this._flushHandle);
+-		this._flushBuffer();
+-		this._disposables.dispose();
+-	}
+-
+-	protected installErrorListeners(): void {
+-		// to override
+-	}
+-
+-	private _onErrorEvent(err: any): void {
+-
+-		if (!err || err.code) {
+-			return;
+-		}
+-
+-		// unwrap nested errors from loader
+-		if (err.detail && err.detail.stack) {
+-			err = err.detail;
+-		}
+-
+-		// If it's the no telemetry error it doesn't get logged
+-		// TOOD @lramos15 hacking in FileOperation error because it's too messy to adopt ErrorNoTelemetry. A better solution should be found
+-		//
+-		// Explicitly filter out PendingMigrationError for https://github.com/microsoft/vscode/issues/250648#issuecomment-3394040431
+-		// We don't inherit from ErrorNoTelemetry to preserve the name used in reporting for exthostdeprecatedapiusage event.
+-		// TODO(deepak1556): remove when PendingMigrationError is no longer needed.
+-		if (ErrorNoTelemetry.isErrorNoTelemetry(err) || err instanceof FileOperationError || PendingMigrationError.is(err) || (typeof err?.message === 'string' && err.message.includes('Unable to read file'))) {
+-			return;
+-		}
+-
+-		// work around behavior in workerServer.ts that breaks up Error.stack
+-		const { callstack, msg } = packErrorForTelemetry(err);
+-
+-		// errors without a stack are not useful telemetry
+-		if (!callstack) {
+-			return;
+-		}
+-
+-		const errorEvent: ErrorEvent = { msg, callstack };
+-
+-		// enrich with listener leak diagnostic fields
+-		if (ListenerLeakError.is(err)) {
+-			(errorEvent as UnhandledErrorEvent).kind = err.kind;
+-			(errorEvent as UnhandledErrorEvent).listenerCount = err.listenerCount;
+-		}
+-
+-		this._enqueue(errorEvent);
+-	}
+-
+-	protected _enqueue(e: ErrorEvent): void {
+-
+-		const idx = binarySearch(this._buffer, e, ErrorEvent.compare);
+-		if (idx < 0) {
+-			e.count = 1;
+-			this._buffer.splice(~idx, 0, e);
+-		} else {
+-			if (!this._buffer[idx].count) {
+-				this._buffer[idx].count = 0;
+-			}
+-			this._buffer[idx].count += 1;
+-		}
+-
+-		if (this._flushHandle === undefined) {
+-			this._flushHandle = setTimeout(() => {
+-				this._flushBuffer();
+-				this._flushHandle = undefined;
+-			}, this._flushDelay);
+-		}
+-	}
+-
+-	private _flushBuffer(): void {
+-		for (const error of this._buffer) {
+-			this._telemetryService.publicLogError2<UnhandledErrorEvent, UnhandledErrorClassification>('UnhandledError', error as UnhandledErrorEvent);
+-		}
+-		this._buffer.length = 0;
+-	}
+-}
+diff --git a/src/vs/platform/telemetry/common/serverTelemetryService.ts b/src/vs/platform/telemetry/common/serverTelemetryService.ts
+index 7dd6ad75..42a32df9 100644
+--- a/src/vs/platform/telemetry/common/serverTelemetryService.ts
++++ b/src/vs/platform/telemetry/common/serverTelemetryService.ts
+@@ -5,8 +5,4 @@
+ 
+-import { IConfigurationService } from '../../configuration/common/configuration.js';
+ import { refineServiceDecorator } from '../../instantiation/common/instantiation.js';
+-import { IProductService } from '../../product/common/productService.js';
+-import { ClassifiedEvent, IGDPRProperty, OmitMetadata, StrictPropertyCheck } from './gdprTypings.js';
+-import { ITelemetryData, ITelemetryService, TelemetryLevel } from './telemetry.js';
+-import { ITelemetryServiceConfig, TelemetryService } from './telemetryService.js';
++import { ITelemetryService, TelemetryLevel } from './telemetry.js';
+ import { NullTelemetryServiceShape } from './telemetryUtils.js';
+@@ -17,58 +13,4 @@ export interface IServerTelemetryService extends ITelemetryService {
+ 
+-export class ServerTelemetryService extends TelemetryService implements IServerTelemetryService {
+-	// Because we cannot read the workspace config on the remote site
+-	// the ServerTelemetryService is responsible for knowing its telemetry level
+-	// this is done through IPC calls and initial value injections
+-	private _injectedTelemetryLevel: TelemetryLevel;
+-	constructor(
+-		config: ITelemetryServiceConfig,
+-		injectedTelemetryLevel: TelemetryLevel,
+-		@IConfigurationService _configurationService: IConfigurationService,
+-		@IProductService _productService: IProductService
+-	) {
+-		super(config, _configurationService, _productService);
+-		this._injectedTelemetryLevel = injectedTelemetryLevel;
+-	}
+-
+-	override get telemetryLevel(): TelemetryLevel {
+-		return Math.min(super.telemetryLevel, this._injectedTelemetryLevel);
+-	}
+-
+-	override publicLog(eventName: string, data?: ITelemetryData) {
+-		if (this._injectedTelemetryLevel < TelemetryLevel.USAGE) {
+-			return;
+-		}
+-		return super.publicLog(eventName, data);
+-	}
+-
+-	override publicLog2<E extends ClassifiedEvent<OmitMetadata<T>> = never, T extends IGDPRProperty = never>(eventName: string, data?: StrictPropertyCheck<T, E>) {
+-		return this.publicLog(eventName, data as ITelemetryData | undefined);
+-	}
+-
+-	override publicLogError(errorEventName: string, data?: ITelemetryData) {
+-		if (this._injectedTelemetryLevel < TelemetryLevel.ERROR) {
+-			return Promise.resolve(undefined);
+-		}
+-		return super.publicLogError(errorEventName, data);
+-	}
+-
+-	override publicLogError2<E extends ClassifiedEvent<OmitMetadata<T>> = never, T extends IGDPRProperty = never>(eventName: string, data?: StrictPropertyCheck<T, E>) {
+-		return this.publicLogError(eventName, data as ITelemetryData | undefined);
+-	}
+-
+-	async updateInjectedTelemetryLevel(telemetryLevel: TelemetryLevel): Promise<void> {
+-		if (telemetryLevel === undefined) {
+-			this._injectedTelemetryLevel = TelemetryLevel.NONE;
+-			throw new Error('Telemetry level cannot be undefined. This will cause infinite looping!');
+-		}
+-		// We always take the most restrictive level because we don't want multiple clients to connect and send data when one client does not consent
+-		this._injectedTelemetryLevel = Math.min(this._injectedTelemetryLevel, telemetryLevel);
+-		if (this._injectedTelemetryLevel === TelemetryLevel.NONE) {
+-			this.dispose();
+-		}
+-	}
+-}
+-
+ export const ServerNullTelemetryService = new class extends NullTelemetryServiceShape implements IServerTelemetryService {
+-	async updateInjectedTelemetryLevel(): Promise<void> { return; } // No-op, telemetry is already disabled
++	async updateInjectedTelemetryLevel(): Promise<void> { return; } // No-op, telemetry is removed from this build
+ };
+diff --git a/src/vs/platform/telemetry/common/telemetryUtils.ts b/src/vs/platform/telemetry/common/telemetryUtils.ts
+index 15377a80..dcb786f2 100644
+--- a/src/vs/platform/telemetry/common/telemetryUtils.ts
++++ b/src/vs/platform/telemetry/common/telemetryUtils.ts
+@@ -14,4 +14,3 @@ import { IProductService } from '../../product/common/productService.js';
+ import { getRemoteName } from '../../remote/common/remoteHosts.js';
+-import { verifyMicrosoftInternalDomain } from './commonProperties.js';
+-import { ICustomEndpointTelemetryService, ITelemetryData, ITelemetryEndpoint, ITelemetryService, TelemetryConfiguration, TelemetryLevel, TELEMETRY_CRASH_REPORTER_SETTING_ID, TELEMETRY_OLD_SETTING_ID, TELEMETRY_SETTING_ID } from './telemetry.js';
++import { ICustomEndpointTelemetryService, ITelemetryData, ITelemetryEndpoint, ITelemetryService, TelemetryLevel } from './telemetry.js';
+ 
+@@ -86,76 +85,14 @@ export interface URIDescriptor {
+ /**
+- * Determines whether or not we support logging telemetry.
+- * This checks if the product is capable of collecting telemetry but not whether or not it can send it
+- * For checking the user setting and what telemetry you can send please check `getTelemetryLevel`.
+- * This returns true if `--disable-telemetry` wasn't used, the product.json allows for telemetry, and we're not testing an extension
+- * If false telemetry is disabled throughout the product
+- * @param productService
+- * @param environmentService
+- * @returns false - telemetry is completely disabled, true - telemetry is logged locally, but may not be sent
++ * Telemetry is removed from this build: nothing is collected or sent.
+  */
+-export function supportsTelemetry(productService: IProductService, environmentService: IEnvironmentService): boolean {
+-	// If it's OSS and telemetry isn't disabled via the CLI we will allow it for logging only purposes
+-	if (!environmentService.isBuilt && !environmentService.disableTelemetry) {
+-		return true;
+-	}
+-	return !(environmentService.disableTelemetry || !productService.enableTelemetry);
++export function supportsTelemetry(_productService: IProductService, _environmentService: IEnvironmentService): boolean {
++	return false;
+ }
+ 
+-/**
+- * Checks to see if we're in logging only mode to debug telemetry.
+- * This is if telemetry is enabled and we're in OSS, but no telemetry key is provided so it's not being sent just logged.
+- * @param productService
+- * @param environmentService
+- * @returns True if telemetry is actually disabled and we're only logging for debug purposes
+- */
+-export function isLoggingOnly(productService: IProductService, environmentService: IEnvironmentService): boolean {
+-	// If we're testing an extension, log telemetry for debug purposes
+-	if (environmentService.extensionTestsLocationURI) {
+-		return true;
+-	}
+-	// Logging only mode is only for OSS
+-	if (environmentService.isBuilt) {
+-		return false;
+-	}
+-
+-	if (environmentService.disableTelemetry) {
+-		return false;
+-	}
+-
+-	if (productService.enableTelemetry && productService.aiConfig?.ariaKey) {
+-		return false;
+-	}
+-
+-	return true;
++export function isLoggingOnly(_productService: IProductService, _environmentService: IEnvironmentService): boolean {
++	return false;
+ }
+ 
+-/**
+- * Determines how telemetry is handled based on the user's configuration.
+- *
+- * @param configurationService
+- * @returns OFF, ERROR, ON
+- */
+-export function getTelemetryLevel(configurationService: IConfigurationService): TelemetryLevel {
+-	const newConfig = configurationService.getValue<TelemetryConfiguration>(TELEMETRY_SETTING_ID);
+-	const crashReporterConfig = configurationService.getValue<boolean | undefined>(TELEMETRY_CRASH_REPORTER_SETTING_ID);
+-	const oldConfig = configurationService.getValue<boolean | undefined>(TELEMETRY_OLD_SETTING_ID);
+-
+-	// If `telemetry.enableCrashReporter` is false or `telemetry.enableTelemetry' is false, disable telemetry
+-	if (oldConfig === false || crashReporterConfig === false) {
+-		return TelemetryLevel.NONE;
+-	}
+-
+-	// Maps new telemetry setting to a telemetry level
+-	switch (newConfig === undefined ? TelemetryConfiguration.ON : newConfig) {
+-		case TelemetryConfiguration.ON:
+-			return TelemetryLevel.USAGE;
+-		case TelemetryConfiguration.ERROR:
+-			return TelemetryLevel.ERROR;
+-		case TelemetryConfiguration.CRASH:
+-			return TelemetryLevel.CRASH;
+-		case TelemetryConfiguration.OFF:
+-			return TelemetryLevel.NONE;
+-		default:
+-			return TelemetryLevel.NONE;
+-	}
++export function getTelemetryLevel(_configurationService: IConfigurationService): TelemetryLevel {
++	return TelemetryLevel.NONE;
+ }
+@@ -262,12 +199,4 @@ function flatten(obj: unknown, result: Record<string, unknown>, order: number =
+ 
+-/**
+- * Whether or not this is an internal user
+- * @param productService The product service
+- * @param configService The config servivce
+- * @returns true if internal, false otherwise
+- */
+-export function isInternalTelemetry(productService: IProductService, configService: IConfigurationService) {
+-	const msftInternalDomains = productService.msftInternalDomains || [];
+-	const internalTesting = configService.getValue<boolean>('telemetry.internalTesting');
+-	return verifyMicrosoftInternalDomain(msftInternalDomains) || internalTesting;
++export function isInternalTelemetry(_productService: IProductService, _configService: IConfigurationService): boolean {
++	return false;
+ }
+diff --git a/src/vs/platform/telemetry/test/common/telemetryUtils.test.ts b/src/vs/platform/telemetry/test/common/telemetryUtils.test.ts
+index b380417f..e1b58ec0 100644
+--- a/src/vs/platform/telemetry/test/common/telemetryUtils.test.ts
++++ b/src/vs/platform/telemetry/test/common/telemetryUtils.test.ts
+@@ -15,3 +15,3 @@ suite('TelemetryUtils', () => {
+ 
+-	test('getTelemetryLevel fails closed for invalid configuration', () => {
++	test('getTelemetryLevel is off for every configuration (telemetry is removed)', () => {
+ 		assert.deepStrictEqual([
+@@ -29,6 +29,6 @@ suite('TelemetryUtils', () => {
+ 		], [
+-			TelemetryLevel.USAGE,
+-			TelemetryLevel.USAGE,
+-			TelemetryLevel.ERROR,
+-			TelemetryLevel.CRASH,
++			TelemetryLevel.NONE,
++			TelemetryLevel.NONE,
++			TelemetryLevel.NONE,
++			TelemetryLevel.NONE,
+ 			TelemetryLevel.NONE,
+diff --git a/src/vs/platform/telemetry/test/common/testTelemetryLoggerService.ts b/src/vs/platform/telemetry/test/common/testTelemetryLoggerService.ts
+new file mode 100644
+index 00000000..05fd6be1
+--- /dev/null
++++ b/src/vs/platform/telemetry/test/common/testTelemetryLoggerService.ts
+@@ -0,0 +1,87 @@
++/*---------------------------------------------------------------------------------------------
++ *  Copyright (c) Microsoft Corporation. All rights reserved.
++ *  Licensed under the MIT License. See License.txt in the project root for license information.
++ *--------------------------------------------------------------------------------------------*/
++import { Event } from '../../../../base/common/event.js';
++import { URI } from '../../../../base/common/uri.js';
++import { AbstractLogger, DEFAULT_LOG_LEVEL, ILogger, ILoggerService, LogLevel } from '../../../log/common/log.js';
++
++class TestTelemetryLogger extends AbstractLogger implements ILogger {
++
++	public logs: string[] = [];
++
++	constructor(logLevel: LogLevel = DEFAULT_LOG_LEVEL) {
++		super();
++		this.setLevel(logLevel);
++	}
++
++	trace(message: string, ...args: unknown[]): void {
++		if (this.canLog(LogLevel.Trace)) {
++			this.logs.push(message + JSON.stringify(args));
++		}
++	}
++
++	debug(message: string, ...args: unknown[]): void {
++		if (this.canLog(LogLevel.Debug)) {
++			this.logs.push(message);
++		}
++	}
++
++	info(message: string, ...args: unknown[]): void {
++		if (this.canLog(LogLevel.Info)) {
++			this.logs.push(message);
++		}
++	}
++
++	warn(message: string | Error, ...args: unknown[]): void {
++		if (this.canLog(LogLevel.Warning)) {
++			this.logs.push(message.toString());
++		}
++	}
++
++	error(message: string, ...args: unknown[]): void {
++		if (this.canLog(LogLevel.Error)) {
++			this.logs.push(message);
++		}
++	}
++	flush(): void { }
++}
++
++export class TestTelemetryLoggerService implements ILoggerService {
++	_serviceBrand: undefined;
++
++	logger?: TestTelemetryLogger;
++	loggerId?: string | URI;
++
++	constructor(private readonly logLevel: LogLevel) { }
++
++	getLogger(id?: string | URI) {
++		if (id) {
++			this.loggerId = id;
++		}
++		return this.logger;
++	}
++
++	createLogger(id?: string | URI) {
++		if (id) {
++			this.loggerId = id;
++		}
++		if (!this.logger) {
++			this.logger = new TestTelemetryLogger(this.logLevel);
++		}
++
++		return this.logger;
++	}
++
++	onDidChangeVisibility = Event.None;
++	onDidChangeLogLevel = Event.None;
++	onDidChangeLoggers = Event.None;
++	setLogLevel(): void { }
++	getLogLevel() { return LogLevel.Info; }
++	setVisibility(): void { }
++	getDefaultLogLevel() { return this.logLevel; }
++	registerLogger() { }
++	deregisterLogger(): void { }
++	getRegisteredLoggers() { return []; }
++	getRegisteredLogger() { return undefined; }
++}
+diff --git a/src/vs/platform/update/test/electron-main/updateRelaunchArguments.test.ts b/src/vs/platform/update/test/electron-main/updateRelaunchArguments.test.ts
+index 7d246fd5..43bb672c 100644
+--- a/src/vs/platform/update/test/electron-main/updateRelaunchArguments.test.ts
++++ b/src/vs/platform/update/test/electron-main/updateRelaunchArguments.test.ts
+@@ -53,3 +53,2 @@ suite('Win32UpdateService - relaunch arguments', () => {
+ 			'profile-temp': true,
+-			'crash-reporter-id': 'derived-id',
+ 			'logsPath': 'C:\\logs',
+diff --git a/src/vs/server/node/server.cli.ts b/src/vs/server/node/server.cli.ts
+index 30e4c6e0..6484909e 100644
+--- a/src/vs/server/node/server.cli.ts
++++ b/src/vs/server/node/server.cli.ts
+@@ -48,3 +48,2 @@ const isSupportedForCmd = (optionId: keyof RemoteParsedArgs) => {
+ 		case 'builtin-extensions-dir':
+-		case 'telemetry':
+ 			return false;
+diff --git a/src/vs/server/node/serverServices.ts b/src/vs/server/node/serverServices.ts
+index ed077663..6750c4d7 100644
+--- a/src/vs/server/node/serverServices.ts
++++ b/src/vs/server/node/serverServices.ts
+@@ -6,3 +6,2 @@
+ import * as fs from 'fs';
+-import { hostname, release } from 'os';
+ import { Emitter, Event } from '../../base/common/event.js';
+@@ -13,3 +12,2 @@ import { IURITransformer } from '../../base/common/uriIpc.js';
+ import { generateUuid } from '../../base/common/uuid.js';
+-import { getMachineId, getSqmMachineId, getDevDeviceId } from '../../base/node/id.js';
+ import { Promises } from '../../base/node/pfs.js';
+@@ -46,7 +44,4 @@ import { RequestChannel } from '../../platform/request/common/requestIpc.js';
+ import { RequestService } from '../../platform/request/node/requestService.js';
+-import { resolveCommonProperties } from '../../platform/telemetry/common/commonProperties.js';
+-import { ITelemetryService, TelemetryLevel } from '../../platform/telemetry/common/telemetry.js';
+-import { ITelemetryServiceConfig } from '../../platform/telemetry/common/telemetryService.js';
+-import { getPiiPathsFromEnvironment, getUserContentPathsFromEnvironment, isInternalTelemetry, isLoggingOnly, ITelemetryAppender, NullAppender, supportsTelemetry } from '../../platform/telemetry/common/telemetryUtils.js';
+-import ErrorTelemetry from '../../platform/telemetry/node/errorTelemetry.js';
++import { ITelemetryService } from '../../platform/telemetry/common/telemetry.js';
++import { NullAppender } from '../../platform/telemetry/common/telemetryUtils.js';
+ import { IPtyService, TerminalSettingId } from '../../platform/terminal/common/terminal.js';
+@@ -58,3 +53,3 @@ import { RemoteAgentFileSystemProviderChannel } from './remoteFileSystemProvider
+ import { ServerTelemetryChannel } from '../../platform/telemetry/common/remoteTelemetryChannel.js';
+-import { IServerTelemetryService, ServerNullTelemetryService, ServerTelemetryService } from '../../platform/telemetry/common/serverTelemetryService.js';
++import { IServerTelemetryService, ServerNullTelemetryService } from '../../platform/telemetry/common/serverTelemetryService.js';
+ import { RemoteTerminalChannel } from './remoteTerminalChannel.js';
+@@ -71,3 +66,2 @@ import { IUserDataProfilesService } from '../../platform/userDataProfile/common/
+ import { NullPolicyService } from '../../platform/policy/common/policy.js';
+-import { OneDataSystemAppender } from '../../platform/telemetry/node/1dsAppender.js';
+ import { LoggerService } from '../../platform/log/node/loggerService.js';
+@@ -90,3 +84,2 @@ import { CSSDevelopmentService, ICSSDevelopmentService } from '../../platform/cs
+ import { AllowedExtensionsService } from '../../platform/extensionManagement/common/allowedExtensionsService.js';
+-import { TelemetryLogAppender } from '../../platform/telemetry/common/telemetryLogAppender.js';
+ import { INativeMcpDiscoveryHelperService, NativeMcpDiscoveryHelperChannelName } from '../../platform/mcp/common/nativeMcpDiscoveryHelper.js';
+@@ -110,3 +103,2 @@ import { SandboxHelperService } from '../../platform/sandbox/node/sandboxHelper.
+ 
+-const eventPrefix = 'monacoworkbench';
+ 
+@@ -171,8 +163,5 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
+ 	// Initialize
+-	const [, , machineId, sqmId, devDeviceId] = await Promise.all([
++	await Promise.all([
+ 		configurationService.initialize(),
+-		userDataProfilesService.init(),
+-		getMachineId(logService.error.bind(logService)),
+-		getSqmMachineId(logService.error.bind(logService)),
+-		getDevDeviceId(logService.error.bind(logService))
++		userDataProfilesService.init()
+ 	]);
+@@ -186,32 +175,4 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
+ 
+-	let oneDsAppender: ITelemetryAppender = NullAppender;
+-	const isInternal = isInternalTelemetry(productService, configurationService);
+-	if (supportsTelemetry(productService, environmentService)) {
+-		if (!isLoggingOnly(productService, environmentService) && productService.aiConfig?.ariaKey) {
+-			oneDsAppender = new OneDataSystemAppender(requestService, isInternal, eventPrefix, null, productService.aiConfig.ariaKey);
+-			disposables.add(toDisposable(() => oneDsAppender?.flush())); // Ensure the AI appender is disposed so that it flushes remaining data
+-		}
+-
+-		const config: ITelemetryServiceConfig = {
+-			appenders: [oneDsAppender, new TelemetryLogAppender('', true, loggerService, environmentService, productService)],
+-			commonProperties: resolveCommonProperties(release(), hostname(), process.arch, productService.commit, productService.version + '-remote', machineId, sqmId, devDeviceId, isInternal, productService.date, 'remoteAgent'),
+-			piiPaths: getPiiPathsFromEnvironment(environmentService),
+-			userContentPaths: getUserContentPathsFromEnvironment(environmentService)
+-		};
+-		const initialTelemetryLevelArg = environmentService.args['telemetry-level'];
+-		let injectedTelemetryLevel: TelemetryLevel = TelemetryLevel.USAGE;
+-		// Convert the passed in CLI argument into a telemetry level for the telemetry service
+-		if (initialTelemetryLevelArg === 'all') {
+-			injectedTelemetryLevel = TelemetryLevel.USAGE;
+-		} else if (initialTelemetryLevelArg === 'error') {
+-			injectedTelemetryLevel = TelemetryLevel.ERROR;
+-		} else if (initialTelemetryLevelArg === 'crash') {
+-			injectedTelemetryLevel = TelemetryLevel.CRASH;
+-		} else if (initialTelemetryLevelArg !== undefined) {
+-			injectedTelemetryLevel = TelemetryLevel.NONE;
+-		}
+-		services.set(IServerTelemetryService, new SyncDescriptor(ServerTelemetryService, [config, injectedTelemetryLevel]));
+-	} else {
+-		services.set(IServerTelemetryService, ServerNullTelemetryService);
+-	}
++	// Telemetry is removed from this build
++	services.set(IServerTelemetryService, ServerNullTelemetryService);
+ 
+@@ -410,3 +371,3 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
+ 
+-		const telemetryChannel = new ServerTelemetryChannel(accessor.get(IServerTelemetryService), oneDsAppender);
++		const telemetryChannel = new ServerTelemetryChannel(accessor.get(IServerTelemetryService), NullAppender);
+ 		socketServer.registerChannel('telemetry', telemetryChannel);
+@@ -436,4 +397,2 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
+ 
+-		disposables.add(new ErrorTelemetry(accessor.get(ITelemetryService)));
+-
+ 		return {
+diff --git a/src/vs/sessions/contrib/sessions/test/browser/sessionsAccountTelemetry.test.ts b/src/vs/sessions/contrib/sessions/test/browser/sessionsAccountTelemetry.test.ts
+index 752c3a72..d5218319 100644
+--- a/src/vs/sessions/contrib/sessions/test/browser/sessionsAccountTelemetry.test.ts
++++ b/src/vs/sessions/contrib/sessions/test/browser/sessionsAccountTelemetry.test.ts
+@@ -14,5 +14,3 @@ import { IDefaultAccountService } from '../../../../../platform/defaultAccount/c
+ import { NullLogService } from '../../../../../platform/log/common/log.js';
+-import product from '../../../../../platform/product/common/product.js';
+-import { ITelemetryData, ITelemetryService, TelemetryLevel } from '../../../../../platform/telemetry/common/telemetry.js';
+-import { TelemetryService } from '../../../../../platform/telemetry/common/telemetryService.js';
++import { ITelemetryData, ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
+ import { NullTelemetryServiceShape } from '../../../../../platform/telemetry/common/telemetryUtils.js';
+@@ -553,23 +551,2 @@ suite('SessionsAccountTelemetryContribution', () => {
+ 
+-	test('startup and change events honor the existing usage telemetry consent', async () => {
+-		await runWithFakedTimers({ useFakeTimers: true }, async () => {
+-			const results = [TelemetryLevel.NONE, TelemetryLevel.CRASH, TelemetryLevel.ERROR, TelemetryLevel.USAGE].map(level => {
+-				const names: string[] = [];
+-				const telemetryService = disposables.add(TelemetryService.createWithLevel({
+-					telemetryLevel: level,
+-					appenders: [{ log: name => names.push(name), flush: async () => { } }],
+-				}, { ...product, _serviceBrand: undefined }));
+-				return { names, harness: createHarness({ telemetryService }) };
+-			});
+-			await timeout(1);
+-			for (const { harness } of results) {
+-				harness.codexAccountService.account = { status: 'signedIn' };
+-				harness.accountChanged.fire(harness.codexAccountService.account);
+-			}
+-			await timeout(0);
+-
+-			assert.deepStrictEqual(results.map(result => result.names), [[], [], [], ['agents/accountState', 'agents/accountStateChanged']]);
+-		});
+-	});
+-
+ 	test('disposes pending startup, initialization continuations, and account listeners', async () => {
+diff --git a/src/vs/sessions/sessions.common.main.ts b/src/vs/sessions/sessions.common.main.ts
+index 5c2c5fef..85b3477b 100644
+--- a/src/vs/sessions/sessions.common.main.ts
++++ b/src/vs/sessions/sessions.common.main.ts
+@@ -209,5 +209,2 @@ import '../workbench/services/accounts/browser/defaultAccount.js';
+ 
+-// Telemetry
+-import '../workbench/contrib/telemetry/browser/telemetry.contribution.js';
+-import '../workbench/services/policies/browser/policyTelemetry.contribution.js';
+ 
+diff --git a/src/vs/sessions/sessions.desktop.main.ts b/src/vs/sessions/sessions.desktop.main.ts
+index 667ebcc4..003e8f00 100644
+--- a/src/vs/sessions/sessions.desktop.main.ts
++++ b/src/vs/sessions/sessions.desktop.main.ts
+@@ -71,3 +71,3 @@ import '../workbench/services/secrets/electron-browser/secretStorageService.js';
+ import '../workbench/services/localization/electron-browser/languagePackService.js';
+-import '../workbench/services/telemetry/electron-browser/telemetryService.js';
++import '../workbench/services/telemetry/browser/telemetryService.js';
+ import '../workbench/services/extensions/electron-browser/extensionHostStarter.js';
+@@ -92,3 +92,2 @@ import '../platform/diagnostics/electron-browser/diagnosticsService.js';
+ import '../platform/profiling/electron-browser/profilingService.js';
+-import '../platform/telemetry/electron-browser/customEndpointTelemetryService.js';
+ import '../platform/remoteTunnel/electron-browser/remoteTunnelService.js';
+@@ -185,4 +184,4 @@ import '../workbench/contrib/modernUI/electron-browser/frostedGlass.contribution
+ // Tags
+-import '../workbench/contrib/tags/electron-browser/workspaceTagsService.js';
+-import '../workbench/contrib/tags/electron-browser/tags.contribution.js';
++import '../workbench/contrib/tags/browser/workspaceTagsService.js';
++
+ // Performance
+diff --git a/src/vs/sessions/sessions.web.main.ts b/src/vs/sessions/sessions.web.main.ts
+index 7082d497..f4df331b 100644
+--- a/src/vs/sessions/sessions.web.main.ts
++++ b/src/vs/sessions/sessions.web.main.ts
+@@ -98,4 +98,2 @@ import { UserDataAutoSyncService } from '../platform/userDataSync/common/userDat
+ import { AccessibilityService } from '../platform/accessibility/browser/accessibilityService.js';
+-import { ICustomEndpointTelemetryService } from '../platform/telemetry/common/telemetry.js';
+-import { NullEndpointTelemetryService } from '../platform/telemetry/common/telemetryUtils.js';
+ import './services/title/browser/titleService.js';
+@@ -134,3 +132,2 @@ registerSingleton(IExtensionTipsService, ExtensionTipsService, InstantiationType
+ registerSingleton(ITimerService, TimerService, InstantiationType.Delayed);
+-registerSingleton(ICustomEndpointTelemetryService, NullEndpointTelemetryService, InstantiationType.Delayed);
+ registerSingleton(IDiagnosticsService, NullDiagnosticsService, InstantiationType.Delayed);
+diff --git a/src/vs/workbench/api/test/browser/extHostTelemetry.test.ts b/src/vs/workbench/api/test/browser/extHostTelemetry.test.ts
+index 7c1e60e6..346abe35 100644
+--- a/src/vs/workbench/api/test/browser/extHostTelemetry.test.ts
++++ b/src/vs/workbench/api/test/browser/extHostTelemetry.test.ts
+@@ -11,3 +11,3 @@ import { DEFAULT_LOG_LEVEL, LogLevel } from '../../../../platform/log/common/log
+ import { TelemetryLevel } from '../../../../platform/telemetry/common/telemetry.js';
+-import { TestTelemetryLoggerService } from '../../../../platform/telemetry/test/common/telemetryLogAppender.test.js';
++import { TestTelemetryLoggerService } from '../../../../platform/telemetry/test/common/testTelemetryLoggerService.js';
+ import { IExtHostInitDataService } from '../../common/extHostInitDataService.js';
+diff --git a/src/vs/workbench/contrib/editTelemetry/browser/editTelemetry.contribution.ts b/src/vs/workbench/contrib/editTelemetry/browser/editTelemetry.contribution.ts
+index 255f07f2..3bb9f786 100644
+--- a/src/vs/workbench/contrib/editTelemetry/browser/editTelemetry.contribution.ts
++++ b/src/vs/workbench/contrib/editTelemetry/browser/editTelemetry.contribution.ts
+@@ -7,6 +7,6 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
+ import { EditTelemetryContribution } from './editTelemetryContribution.js';
+-import { EDIT_TELEMETRY_SETTING_ID, AI_STATS_SETTING_ID } from './settingIds.js';
++import { AI_STATS_SETTING_ID } from './settingIds.js';
+ import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
+ import { localize } from '../../../../nls.js';
+-import { EDIT_TELEMETRY_DETAILS_SETTING_ID, EDIT_TELEMETRY_SHOW_DECORATIONS, EDIT_TELEMETRY_SHOW_STATUS_BAR } from './settings.js';
++import { EDIT_TELEMETRY_SHOW_DECORATIONS, EDIT_TELEMETRY_SHOW_STATUS_BAR } from './settings.js';
+ import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
+@@ -16,3 +16,2 @@ import { AiEditTelemetryServiceImpl } from './telemetry/aiEditTelemetry/aiEditTe
+ import { IRandomService, RandomService } from './randomService.js';
+-import { AgentHostEditTelemetryEnabledConfigKey } from '../../../../platform/agentHost/common/agentHostSchema.js';
+ 
+@@ -27,12 +26,2 @@ configurationRegistry.registerConfiguration({
+ 	properties: {
+-		[EDIT_TELEMETRY_SETTING_ID]: {
+-			markdownDescription: localize('telemetry.editStats.enabled', "Controls whether to enable telemetry for edit statistics (only sends statistics if general telemetry is enabled)."),
+-			type: 'boolean',
+-			default: false,
+-			tags: ['experimental'],
+-			experiment: {
+-				mode: 'auto'
+-			},
+-			agentHost: { key: AgentHostEditTelemetryEnabledConfigKey },
+-		},
+ 		[AI_STATS_SETTING_ID]: {
+@@ -46,11 +35,2 @@ configurationRegistry.registerConfiguration({
+ 		},
+-		[EDIT_TELEMETRY_DETAILS_SETTING_ID]: {
+-			markdownDescription: localize('telemetry.editStats.detailed.enabled', "Controls whether to enable telemetry for detailed edit statistics (only sends statistics if general telemetry is enabled)."),
+-			type: 'boolean',
+-			default: false,
+-			tags: ['experimental'],
+-			experiment: {
+-				mode: 'auto'
+-			}
+-		},
+ 		[EDIT_TELEMETRY_SHOW_STATUS_BAR]: {
+diff --git a/src/vs/workbench/contrib/issue/common/issue.contribution.ts b/src/vs/workbench/contrib/issue/common/issue.contribution.ts
+index 0c1effb4..bf092b6e 100644
+--- a/src/vs/workbench/contrib/issue/common/issue.contribution.ts
++++ b/src/vs/workbench/contrib/issue/common/issue.contribution.ts
+@@ -14,2 +14,5 @@ import { INotificationService } from '../../../../platform/notification/common/n
+ import { IProductService } from '../../../../platform/product/common/productService.js';
++import { PolicyCategory } from '../../../../base/common/policy.js';
++import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
++import { Registry } from '../../../../platform/registry/common/platform.js';
+ import { IWorkbenchContribution } from '../../../common/contributions.js';
+@@ -132 +135,21 @@ export class BaseIssueContribution extends Disposable implements IWorkbenchContr
+ }
++
++Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
++	'id': 'feedback',
++	'order': 1,
++	'type': 'object',
++	'title': localize('feedbackConfigurationTitle', "Feedback"),
++	'properties': {
++		'telemetry.feedback.enabled': {
++			type: 'boolean',
++			default: true,
++			description: localize('telemetry.feedback.enabled', "Enable feedback mechanisms such as the issue reporter, surveys, and other feedback options."),
++			policy: {
++				name: 'EnableFeedback',
++				category: PolicyCategory.Telemetry,
++				minimumVersion: '1.99',
++				localization: { description: { key: 'telemetry.feedback.enabled', value: localize('telemetry.feedback.enabled', "Enable feedback mechanisms such as the issue reporter, surveys, and other feedback options.") } },
++			}
++		}
++	}
++});
+diff --git a/src/vs/workbench/contrib/onboarding/test/browser/onboardingTryoutService.test.ts b/src/vs/workbench/contrib/onboarding/test/browser/onboardingTryoutService.test.ts
+index 9bcfb615..3cd4b310 100644
+--- a/src/vs/workbench/contrib/onboarding/test/browser/onboardingTryoutService.test.ts
++++ b/src/vs/workbench/contrib/onboarding/test/browser/onboardingTryoutService.test.ts
+@@ -18,5 +18,3 @@ import { ContextKeyService } from '../../../../../platform/contextkey/browser/co
+ import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+-import { IProductService } from '../../../../../platform/product/common/productService.js';
+-import { ITelemetryData, ITelemetryService, TelemetryLevel } from '../../../../../platform/telemetry/common/telemetry.js';
+-import { TelemetryService } from '../../../../../platform/telemetry/common/telemetryService.js';
++import { ITelemetryData, ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
+ import { NullTelemetryServiceShape } from '../../../../../platform/telemetry/common/telemetryUtils.js';
+@@ -211,41 +209,2 @@ suite('OnboardingTryoutService', () => {
+ 
+-	for (const eventName of ['onboarding.tryoutStarted', 'onboarding.tryoutOutcome']) {
+-		test(`cleans up and allows another run when ${eventName} telemetry throws`, async () => {
+-			const error = new Error('Telemetry appender failed');
+-			let shouldThrow = true;
+-			const telemetry = store.add(TelemetryService.createWithLevel({
+-				telemetryLevel: TelemetryLevel.USAGE,
+-				appenders: [{
+-					log: name => {
+-						if (shouldThrow && name === eventName) {
+-							shouldThrow = false;
+-							throw error;
+-						}
+-					},
+-					flush: async () => { },
+-				}],
+-			}, upcastPartial<IProductService>({ enabledTelemetryLevels: { usage: true, error: true } })));
+-			const { service } = createService(true, telemetry);
+-			const contexts: IOnboardingTryoutRunContext[] = [];
+-			let disposed = 0;
+-			registerTryout();
+-			registerPresentation(async context => {
+-				contexts.push(context);
+-				context.store.add(toDisposable(() => disposed++));
+-				return { kind: 'ready', run: async () => ({ kind: 'executed' }) };
+-			});
+-
+-			await assert.rejects(service.run('test.tryout'), candidate => candidate === error);
+-			const afterFailure = { disposed, cancelled: contexts[0].token.isCancellationRequested };
+-			const result = await service.run('test.tryout');
+-
+-			assert.deepStrictEqual({ afterFailure, result, attempts: contexts.length, disposed }, {
+-				afterFailure: { disposed: 1, cancelled: true },
+-				result: { kind: 'executed' },
+-				attempts: 2,
+-				disposed: 2,
+-			});
+-		});
+-	}
+-
+ 	test('does not report a launch when preparation is cancelled', async () => {
+@@ -261,23 +220,2 @@ suite('OnboardingTryoutService', () => {
+ 
+-	for (const { level, usageEnabled } of [
+-		{ level: TelemetryLevel.NONE, usageEnabled: true },
+-		{ level: TelemetryLevel.ERROR, usageEnabled: true },
+-		{ level: TelemetryLevel.USAGE, usageEnabled: false },
+-		{ level: TelemetryLevel.USAGE, usageEnabled: true },
+-	]) {
+-		test(`respects telemetry level ${level} with product usage telemetry ${usageEnabled}`, async () => {
+-			const events: string[] = [];
+-			const telemetry = store.add(TelemetryService.createWithLevel({
+-				telemetryLevel: level,
+-				appenders: [{ log: name => events.push(name), flush: async () => { } }],
+-			}, upcastPartial<IProductService>({ enabledTelemetryLevels: { usage: usageEnabled, error: true } })));
+-			const { service } = createService(true, telemetry);
+-			registerTryout();
+-			registerPresentation(async () => ({ kind: 'ready', run: async () => ({ kind: 'opened' }) }));
+-			await service.run('test.tryout');
+-
+-			assert.deepStrictEqual(events, level === TelemetryLevel.USAGE && usageEnabled ? ['onboarding.tryoutStarted', 'onboarding.tryoutOutcome'] : []);
+-		});
+-	}
+-
+ 	test('registering and reading an example do not prepare or run it', () => {
+diff --git a/src/vs/workbench/contrib/relauncher/browser/relauncher.contribution.ts b/src/vs/workbench/contrib/relauncher/browser/relauncher.contribution.ts
+index 2c957a97..c4f8f8f6 100644
+--- a/src/vs/workbench/contrib/relauncher/browser/relauncher.contribution.ts
++++ b/src/vs/workbench/contrib/relauncher/browser/relauncher.contribution.ts
+@@ -30,3 +30,2 @@ interface IConfiguration extends IWindowsConfiguration {
+ 	window: IWindowSettings;
+-	workbench?: { enableExperiments?: boolean };
+ 	telemetry?: { feedback?: { enabled?: boolean } };
+@@ -65,3 +64,2 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
+ 		'security.workspace.trust.enabled',
+-		'workbench.enableExperiments',
+ 		'_extensionsGallery.enablePPE',
+@@ -90,3 +88,2 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
+ 	private readonly workspaceTrustEnabled = new ChangeObserver('boolean');
+-	private readonly experimentsEnabled = new ChangeObserver('boolean');
+ 	private readonly enablePPEExtensionsGallery = new ChangeObserver('boolean');
+@@ -185,5 +182,2 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
+ 
+-		// Experiments
+-		processChanged(this.experimentsEnabled.handleChange(config.workbench?.enableExperiments));
+-
+ 		// Profiles
+diff --git a/src/vs/workbench/electron-browser/desktop.contribution.ts b/src/vs/workbench/electron-browser/desktop.contribution.ts
+index f20c3ba9..73fd387c 100644
+--- a/src/vs/workbench/electron-browser/desktop.contribution.ts
++++ b/src/vs/workbench/electron-browser/desktop.contribution.ts
+@@ -23,3 +23,2 @@ import { UninstallShellScriptAction } from './actions/installActions.js';
+ import { EditorsVisibleContext, SingleEditorGroupsContext } from '../common/contextkeys.js';
+-import { TELEMETRY_SETTING_ID } from '../../platform/telemetry/common/telemetry.js';
+ import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
+@@ -338,19 +337,2 @@ import product from '../../platform/product/common/product.js';
+ 
+-	// Telemetry
+-	registry.registerConfiguration({
+-		'id': 'telemetry',
+-		'order': 110,
+-		title: localize('telemetryConfigurationTitle', "Telemetry"),
+-		'type': 'object',
+-		'properties': {
+-			'telemetry.enableCrashReporter': {
+-				'type': 'boolean',
+-				'description': localize('telemetry.enableCrashReporting', "Enable crash reports to be collected. This helps us improve stability. \nThis option requires restart to take effect."),
+-				'default': false,
+-				'tags': ['usesOnlineServices', 'telemetry'],
+-				'markdownDeprecationMessage': localize('enableCrashReporterDeprecated', "If this setting is false, no telemetry will be sent regardless of the new setting's value. Deprecated due to being combined into the {0} setting.", `\`#${TELEMETRY_SETTING_ID}#\``),
+-			}
+-		}
+-	});
+-
+ 	// Keybinding
+@@ -432,10 +414,2 @@ import product from '../../platform/product/common/product.js';
+ 			},
+-			'enable-crash-reporter': {
+-				type: 'boolean',
+-				markdownDescription: localize('argv.enableCrashReporter', 'Allows to disable crash reporting, should restart the app if the value is changed.')
+-			},
+-			'crash-reporter-id': {
+-				type: 'string',
+-				markdownDescription: localize('argv.crashReporterId', 'Unique id used for correlating crash reports sent from this app instance.')
+-			},
+ 			'enable-proposed-api': {
+diff --git a/src/vs/workbench/services/assignment/common/assignmentService.ts b/src/vs/workbench/services/assignment/common/assignmentService.ts
+index 6ff73821..a792a6f8 100644
+--- a/src/vs/workbench/services/assignment/common/assignmentService.ts
++++ b/src/vs/workbench/services/assignment/common/assignmentService.ts
+@@ -5,31 +5,6 @@
+ 
+-import { localize } from '../../../../nls.js';
+-import { createDecorator, IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+-import type { IKeyValueStorage, IExperimentationTelemetry, IExperimentationFilterProvider, ExperimentationService as TASClient } from 'tas-client';
+-import { Memento } from '../../../common/memento.js';
+-import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
+-import { TelemetryTrustedValue } from '../../../../platform/telemetry/common/telemetryUtils.js';
+-import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+-import { ITelemetryData } from '../../../../base/common/actions.js';
++import { Event } from '../../../../base/common/event.js';
++import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+ import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+-import { IProductService } from '../../../../platform/product/common/productService.js';
+-import { ASSIGNMENT_REFETCH_INTERVAL, ASSIGNMENT_STORAGE_KEY, AssignmentFilterProvider, IAssignmentService, TargetPopulation, VSCodeCoreAssignmentsFilterProvider, WindowKind } from '../../../../platform/assignment/common/assignment.js';
+-import { Registry } from '../../../../platform/registry/common/platform.js';
+-import { workbenchConfigurationNodeBase } from '../../../common/configuration.js';
+-import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope } from '../../../../platform/configuration/common/configurationRegistry.js';
+-import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
+-import { resolveAmdNodeModulePath } from '../../../../amdX.js';
+-import { asJson, IRequestService } from '../../../../platform/request/common/request.js';
+-import { CancellationToken } from '../../../../base/common/cancellation.js';
+-import { timeout } from '../../../../base/common/async.js';
+-import { StopWatch } from '../../../../base/common/stopwatch.js';
+-import { CopilotAssignmentFilterProvider, GitHubCoreAssignmentsFilterProvider } from './assignmentFilters.js';
+-import { IDefaultAccountService } from '../../../../platform/defaultAccount/common/defaultAccount.js';
+-import { AssignmentContextFilter } from './assignmentContextFilter.js';
+-import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
+-import { Emitter, Event } from '../../../../base/common/event.js';
+-import { experimentsEnabled } from '../../telemetry/common/workbenchTelemetryUtils.js';
+-import { CancellationError } from '../../../../base/common/errors.js';
+-import { mapsStrictEqualIgnoreOrder } from '../../../../base/common/map.js';
++import { IAssignmentService } from '../../../../platform/assignment/common/assignment.js';
+ 
+@@ -47,37 +22,2 @@ export const IWorkbenchAssignmentService = createDecorator<IWorkbenchAssignmentS
+ 
+-/**
+- * Scope prefix that the new TAS assignments endpoint (`/api/v1/assignments`) prepends to the
+- * feature variable keys it returns (e.g. `/vscode/config.chat...`). The legacy endpoint and
+- * VS Code both query treatments by the bare name, so this prefix must be accounted for when a
+- * bare lookup misses. This is an interim workaround until tas-client strips the scope itself.
+- */
+-const ASSIGNMENTS_SCOPE_PREFIX = '/vscode/';
+-
+-/**
+- * Resolves a treatment value preferring the `/vscode/`-scoped key emitted by the new TAS
+- * assignments endpoint over the bare key used by the legacy endpoint, so the new endpoint wins
+- * when both assign a treatment (matching the behavior once tas-client strips the scope itself).
+- * Falls back to the bare key for treatments served only by the legacy endpoint.
+- *
+- * Exported for testing.
+- */
+-export function resolveScopedTreatment<T extends string | number | boolean>(read: (name: string) => T | undefined, name: string): T | undefined {
+-	const scoped = read(`${ASSIGNMENTS_SCOPE_PREFIX}${name}`);
+-	return scoped !== undefined ? scoped : read(name);
+-}
+-
+-/**
+- * Builds the telemetry payload for a tas-client feature query. The queried-feature name is marked
+- * trusted so the telemetry cleaner does not redact a `/vscode/`-scoped name as a `user-file-path`.
+- *
+- * Exported for testing.
+- */
+-export function toExperimentTelemetryData(props: Map<string, string>): ITelemetryData {
+-	const data: ITelemetryData = {};
+-	for (const [key, value] of props.entries()) {
+-		data[key] = key === 'ABExp.queriedFeature' ? new TelemetryTrustedValue(value) : value;
+-	}
+-	return data;
+-}
+-
+ export interface IWorkbenchAssignmentService extends IAssignmentService {
+@@ -85,3 +25,2 @@ export interface IWorkbenchAssignmentService extends IAssignmentService {
+ 	addTelemetryAssignmentFilter(filter: IAssignmentFilter): void;
+-	/** Resolves the effective value without delaying developer overrides; assignment metadata always comes from TAS. */
+ 	getTreatmentWithAssignment<T extends string | number | boolean>(name: string): Promise<ITreatmentWithAssignment<T>>;
+@@ -95,516 +34,23 @@ export interface ITreatmentWithAssignment<T extends string | number | boolean> {
+ 
+-export async function resolveTreatmentWithAssignment<T extends string | number | boolean>(override: T | undefined, readAssignment: () => Promise<T | undefined>): Promise<ITreatmentWithAssignment<T>> {
+-	if (override !== undefined) {
+-		return { value: override, hasAssignment: readAssignment().then(value => value !== undefined) };
+-	}
+-	const value = await readAssignment();
+-	return { value, hasAssignment: Promise.resolve(value !== undefined) };
+-}
+-
+-class MementoKeyValueStorage implements IKeyValueStorage {
+-
+-	private readonly mementoObj: Record<string, unknown>;
+-
+-	constructor(private readonly memento: Memento<Record<string, unknown>>) {
+-		this.mementoObj = memento.getMemento(StorageScope.APPLICATION, StorageTarget.MACHINE);
+-	}
+-
+-	async getValue<T>(key: string, defaultValue?: T | undefined): Promise<T | undefined> {
+-		const value = await this.mementoObj[key] as T | undefined;
+-
+-		return value || defaultValue;
+-	}
+-
+-	setValue<T>(key: string, value: T): void {
+-		this.mementoObj[key] = value;
+-		this.memento.saveMemento();
+-	}
+-}
+-
+-class WorkbenchAssignmentServiceTelemetry extends Disposable implements IExperimentationTelemetry {
+-
+-	private readonly _onDidUpdateAssignmentContext = this._register(new Emitter<void>());
+-	readonly onDidUpdateAssignmentContext = this._onDidUpdateAssignmentContext.event;
+-
+-	private _previousAssignmentContext: string | undefined;
+-	private _lastAssignmentContext: string | undefined;
+-	private readonly lastLoggedTreatments = new Map<string, { value: string | undefined; assignmentContext: string | undefined }>();
+-	private lastLoggedAssignmentsValidation: { properties: Map<string, string>; assignmentContext: string | undefined } | undefined;
+-	get assignmentContext(): string[] | undefined {
+-		return this._lastAssignmentContext?.split(';');
+-	}
+-
+-	constructor(
+-		private readonly telemetryService: ITelemetryService,
+-		private readonly productService: IProductService,
+-		private readonly contextFilter: AssignmentContextFilter
+-	) {
+-		super();
+-
+-		// Re-apply the filters whenever a filter is added or changes its exclusion decisions.
+-		this._register(this.contextFilter.onDidChange(() => {
+-			if (this._previousAssignmentContext) {
+-				this._setAssignmentContext(this._previousAssignmentContext);
+-			}
+-		}));
+-	}
+-
+-	private _setAssignmentContext(value: string): void {
+-		const filteredValue = this.contextFilter.filter(value);
+-		this._lastAssignmentContext = filteredValue;
+-		this._onDidUpdateAssignmentContext.fire();
+-
+-		if (this.productService.tasConfig?.assignmentContextTelemetryPropertyName) {
+-			this.telemetryService.setExperimentProperty(this.productService.tasConfig.assignmentContextTelemetryPropertyName, filteredValue);
+-		}
+-	}
+-
+-	// __GDPR__COMMON__ "abexp.assignmentcontext" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+-	setSharedProperty(name: string, value: string): void {
+-		if (name === this.productService.tasConfig?.assignmentContextTelemetryPropertyName) {
+-			this._previousAssignmentContext = value;
+-			return this._setAssignmentContext(value);
+-		}
+-
+-		this.telemetryService.setExperimentProperty(name, value);
+-	}
+-
+-	logTreatment(name: string, result: string | number | boolean | undefined): void {
+-		const treatmentValue = JSON.stringify(result);
+-		const previous = this.lastLoggedTreatments.get(name);
+-		if (previous && previous.value === treatmentValue && previous.assignmentContext === this._lastAssignmentContext) {
+-			return;
+-		}
+-		this.lastLoggedTreatments.set(name, { value: treatmentValue, assignmentContext: this._lastAssignmentContext });
+-
+-		type TASClientReadTreatmentData = {
+-			treatmentName: string;
+-			treatmentValue: string | undefined;
+-		};
+-
+-		type TASClientReadTreatmentClassification = {
+-			owner: 'sbatten';
+-			comment: 'Logged on the first treatment read per window and when its value or telemetry assignment context changes';
+-			treatmentValue: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'The value of the read treatment' };
+-			treatmentName: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'The name of the treatment that was read' };
+-		};
+-
+-		this.telemetryService.publicLog2<TASClientReadTreatmentData, TASClientReadTreatmentClassification>('tasClientReadTreatmentComplete', {
+-			treatmentName: name,
+-			treatmentValue
+-		});
+-	}
+-
+-	postEvent(eventName: string, props: Map<string, string>): void {
+-		if (eventName === 'assignments-validation') {
+-			const previous = this.lastLoggedAssignmentsValidation;
+-			if (previous && previous.assignmentContext === this._lastAssignmentContext && mapsStrictEqualIgnoreOrder(previous.properties, props)) {
+-				return;
+-			}
+-			this.lastLoggedAssignmentsValidation = { properties: new Map(props), assignmentContext: this._lastAssignmentContext };
+-		}
+-
+-		const data = toExperimentTelemetryData(props);
+-
+-		/* __GDPR__
+-			"query-expfeature" : {
+-				"owner": "sbatten",
+-				"comment": "Logs queries to the experiment service by feature for metric calculations",
+-				"ABExp.queriedFeature": { "classification": "SystemMetaData", "purpose": "FeatureInsight", "comment": "The experimental feature being queried" }
+-			}
+-		*/
+-		/* __GDPR__
+-			"assignments-validation" : {
+-				"owner": "sbatten",
+-				"comment": "Validation data for the new TAS assignments endpoint, compared against the legacy endpoint. Logged on the first response per window and when the payload or telemetry assignment context changes.",
+-				"FeatureVariableCount": { "classification": "SystemMetaData", "purpose": "FeatureInsight", "comment": "Number of feature variables returned by the new assignments endpoint" },
+-				"AssignedVariantCount": { "classification": "SystemMetaData", "purpose": "FeatureInsight", "comment": "Number of assigned variants returned by the new assignments endpoint" },
+-				"DataVersion": { "classification": "SystemMetaData", "purpose": "FeatureInsight", "comment": "Data version returned by the new assignments endpoint" },
+-				"AssignmentContext": { "classification": "SystemMetaData", "purpose": "FeatureInsight", "comment": "Assignment context returned by the new assignments endpoint" }
+-			}
+-		*/
+-		/* __GDPR__
+-			"call-assignments-error" : {
+-				"owner": "sbatten",
+-				"comment": "Logs errors when calling the new TAS assignments endpoint",
+-				"ErrorType": { "classification": "SystemMetaData", "purpose": "FeatureInsight", "comment": "The type of error encountered when calling the new assignments endpoint" }
+-			}
+-		*/
+-		/* __GDPR__
+-			"tas-call" : {
+-				"owner": "sbatten",
+-				"comment": "Logs each TAS call (legacy and new assignments endpoint) with its outcome, to confirm calls are made and succeeding per extension",
+-				"callType": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth", "comment": "Which endpoint was called: legacy or assignments" },
+-				"outcome": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth", "comment": "Call outcome: Success, ServerError, NoResponse, or GenericError" },
+-				"extensionName": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth", "comment": "The extension/host the TAS call was made for" },
+-				"assignmentContext": { "classification": "SystemMetaData", "purpose": "FeatureInsight", "comment": "The assignment context returned by this call's endpoint" }
+-			}
+-		*/
+-		this.telemetryService.publicLog(eventName, data);
+-	}
+-}
+-
+-export class WorkbenchAssignmentService extends Disposable implements IAssignmentService {
+-
++/**
++ * Experiments are removed from this build: no assignments are fetched and every treatment is unset.
++ */
++export class WorkbenchAssignmentService implements IWorkbenchAssignmentService {
+ 	declare readonly _serviceBrand: undefined;
+ 
+-	private tasClient: Promise<TASClient> | undefined;
+-	private readonly tasSetupDisposables = this._register(new DisposableStore());
+-
+-	private assignmentsEndpoint: string | undefined;
+-
+-	private networkInitialized = false;
+-	private setupGeneration = 0;
+-	/** Revokes the current setup's storage/telemetry/fetch wrappers, neutralizing a superseded in-flight client. */
+-	private revokeCurrentSetup: (() => void) | undefined;
+-	private readonly overrideInitDelay: Promise<void>;
+-
+-	private readonly contextFilter: AssignmentContextFilter;
+-	private readonly telemetry: WorkbenchAssignmentServiceTelemetry;
+-	private readonly keyValueStorage: IKeyValueStorage;
+-
+-	private readonly experimentsEnabled: boolean;
+-
+-	private readonly _onDidRefetchAssignments = this._register(new Emitter<void>());
+-	public readonly onDidRefetchAssignments = this._onDidRefetchAssignments.event;
+-
+-	constructor(
+-		@ITelemetryService private readonly telemetryService: ITelemetryService,
+-		@IStorageService storageService: IStorageService,
+-		@IConfigurationService private readonly configurationService: IConfigurationService,
+-		@IProductService private readonly productService: IProductService,
+-		@IWorkbenchEnvironmentService private readonly environmentService: IWorkbenchEnvironmentService,
+-		@IInstantiationService private readonly instantiationService: IInstantiationService,
+-		@IDefaultAccountService private readonly defaultAccountService: IDefaultAccountService,
+-		@IRequestService private readonly requestService: IRequestService,
+-	) {
+-		super();
+-
+-		this.experimentsEnabled = experimentsEnabled(configurationService, productService, this.environmentService);
+-
+-		if (this.experimentsEnabled) {
+-			this.tasClient = this.setupTASClient();
+-
+-			// The assignments endpoint is sourced from account entitlements, which load
+-			// asynchronously. The initial account load resolves the readiness barrier without
+-			// firing onDidChangeDefaultAccount, so proactively re-check once it is ready, and
+-			// again whenever the account changes later.
+-			this.defaultAccountService.getDefaultAccount().then(() => this.recreateTasClientIfEndpointChanged());
+-			this._register(this.defaultAccountService.onDidChangeDefaultAccount(() => this.recreateTasClientIfEndpointChanged()));
+-
+-			// Stop the final client's auto-polling and revoke its wrappers when the service is disposed.
+-			this._register(toDisposable(() => {
+-				this.revokeCurrentSetup?.();
+-				WorkbenchAssignmentService.disposeTasClient(this.tasClient);
+-			}));
+-		}
+-
+-		this.contextFilter = this._register(new AssignmentContextFilter(storageService));
+-		this.telemetry = this._register(new WorkbenchAssignmentServiceTelemetry(telemetryService, productService, this.contextFilter));
+-		this._register(this.telemetry.onDidUpdateAssignmentContext(() => this._onDidRefetchAssignments.fire()));
+-		this._register(this.configurationService.onDidChangeConfiguration(e => {
+-			if (e.affectsConfiguration('experiments.override')) {
+-				this._onDidRefetchAssignments.fire();
+-			}
+-		}));
+-
+-		this.keyValueStorage = new MementoKeyValueStorage(new Memento<Record<string, unknown>>('experiment.service.memento', storageService));
+-
+-		// For development purposes, configure the delay until tas local tas treatment ovverrides are available
+-		const overrideDelaySetting = configurationService.getValue('experiments.overrideDelay');
+-		const overrideDelay = typeof overrideDelaySetting === 'number' ? overrideDelaySetting : 0;
+-		this.overrideInitDelay = timeout(overrideDelay);
+-	}
+-
+-	async getTreatment<T extends string | number | boolean>(name: string): Promise<T | undefined> {
+-		const result = await this.doGetTreatment<T>(name);
+-		this.telemetry.logTreatment(name, result);
+-		return result;
+-	}
+-
+-	async getTreatmentWithAssignment<T extends string | number | boolean>(name: string): Promise<ITreatmentWithAssignment<T>> {
+-		await this.overrideInitDelay;
+-		const override = this.configurationService.getValue<T>(`experiments.override.${name}`);
+-		const result = await resolveTreatmentWithAssignment(override, () => this.getAssignedTreatment<T>(name, true));
+-		this.telemetry.logTreatment(name, result.value);
+-		return result;
+-	}
+-
+-	private async doGetTreatment<T extends string | number | boolean>(name: string): Promise<T | undefined> {
+-		await this.overrideInitDelay; // For development purposes, allow overriding tas assignments to test variants locally.
+-
+-		const override = this.configurationService.getValue<T>(`experiments.override.${name}`);
+-		if (override !== undefined) {
+-			return override;
+-		}
+-
+-		return this.getAssignedTreatment<T>(name, false);
+-	}
+-
+-	private async getAssignedTreatment<T extends string | number | boolean>(name: string, requireCurrentClient: boolean): Promise<T | undefined> {
+-		if (!this.tasClient) {
+-			return undefined;
+-		}
+-
+-		if (!this.experimentsEnabled) {
+-			return undefined;
+-		}
+-
+-		for (let attempt = 0; attempt < 2; attempt++) {
+-			if (requireCurrentClient && this._store.isDisposed) {
+-				throw new CancellationError();
+-			}
+-			const clientPromise: Promise<TASClient> = this.tasClient;
+-			const client = await clientPromise;
+-
+-			// Prefer cached treatments while the initial fetch is still pending.
+-			if (!this.networkInitialized) {
+-				await client.getTreatmentVariableAsync<T>('vscode', `${ASSIGNMENTS_SCOPE_PREFIX}${name}`, true);
+-			}
+-			// Assignment metadata must not outlive its client; legacy value-only reads retain their original contract.
+-			if (requireCurrentClient) {
+-				if (this._store.isDisposed) {
+-					throw new CancellationError();
+-				}
+-				if (clientPromise !== this.tasClient) {
+-					continue;
+-				}
+-			}
+-			return resolveScopedTreatment<T>(readName => client.getTreatmentVariable<T>('vscode', readName), name);
+-		}
+-		throw new CancellationError();
+-	}
+-
+-	/**
+-	 * Resolves the new TAS assignments API URL from the account entitlements `exp` endpoint,
+-	 * or `undefined` when no account/endpoint is available.
+-	 */
+-	private getAssignmentsEndpoint(): string | undefined {
+-		const account = this.defaultAccountService.currentDefaultAccount;
+-		const endpoints = account?.entitlementsData?.endpoints;
+-		const exp = endpoints?.exp;
+-		if (!exp) {
+-			return undefined;
+-		}
+-		return `${exp.replace(/\/+$/, '')}/api/v1/assignments`;
+-	}
+-
+-	/** Recreates the TAS client when the resolved assignments endpoint has changed. */
+-	private recreateTasClientIfEndpointChanged(): void {
+-		if (this._store.isDisposed) {
+-			return; // the service was disposed before the (async) account load resolved
+-		}
+-		const next = this.getAssignmentsEndpoint();
+-		if (next !== this.assignmentsEndpoint) {
+-			this.tasClient = this.setupTASClient();
+-		}
+-	}
+-
+-	/**
+-	 * Transport for the new assignments endpoint, backed by the main-process request service
+-	 * (avoids renderer CORS). Shape matches tas-client's injectable `assignmentsFetch`.
+-	 */
+-	private readonly assignmentsFetch = async (url: string, init: { method: 'POST'; headers: Record<string, string>; body: string }): Promise<{ status: number; json(): Promise<unknown> }> => {
+-		const context = await this.requestService.request({
+-			type: init.method,
+-			url,
+-			data: init.body,
+-			headers: init.headers,
+-			disableCache: true,
+-			callSite: 'assignmentService.assignments',
+-		}, CancellationToken.None);
+-		return {
+-			status: context.res.statusCode ?? 0,
+-			json: async () => (await asJson(context)) ?? {},
+-		};
+-	};
+-
+-	private async setupTASClient(): Promise<TASClient> {
+-		this.tasSetupDisposables.clear();
+-
+-		// Each setup supersedes the previous client; track a generation so a stale client's
+-		// initialFetch cannot flip networkInitialized for a newer client.
+-		const generation = ++this.setupGeneration;
+-		this.networkInitialized = false;
+-
+-		// Revoke the previous setup's wrappers, then dispose its client. Revoking neutralizes a
+-		// superseded, still-in-flight client: after replacement it can no longer write the shared
+-		// memento, emit telemetry, or hit the assignments endpoint. This is needed because the
+-		// tas-client's dispose() only stops its polling timer, not an already-running fetch.
+-		this.revokeCurrentSetup?.();
+-		WorkbenchAssignmentService.disposeTasClient(this.tasClient);
+-
+-		let revoked = false;
+-		this.revokeCurrentSetup = () => { revoked = true; };
+-
+-		// Reference the shared memento/telemetry/fetch lazily (at call time): they are assigned in
+-		// the constructor body after the initial setupTASClient() call has already started.
+-		const service = this;
+-
+-		const keyValueStorage: IKeyValueStorage = {
+-			getValue<T>(key: string, defaultValue?: T): Promise<T | undefined> {
+-				return service.keyValueStorage.getValue<T>(key, defaultValue);
+-			},
+-			setValue<T>(key: string, value: T): void {
+-				if (!revoked) {
+-					service.keyValueStorage.setValue<T>(key, value);
+-				}
+-			},
+-		};
+-
+-		const telemetry: IExperimentationTelemetry = {
+-			setSharedProperty(name: string, value: string): void {
+-				if (!revoked) {
+-					service.telemetry.setSharedProperty(name, value);
+-				}
+-			},
+-			postEvent(eventName: string, props: Map<string, string>): void {
+-				if (!revoked) {
+-					service.telemetry.postEvent(eventName, props);
+-				}
+-			},
+-		};
+-
+-		const targetPopulation = this.productService.quality === 'stable' ?
+-			TargetPopulation.Public : (this.productService.quality === 'exploration' ?
+-				TargetPopulation.Exploration : TargetPopulation.Insiders);
+-
+-		const filterProvider = new AssignmentFilterProvider(
+-			this.productService.version,
+-			this.productService.nameLong,
+-			this.telemetryService.machineId,
+-			this.telemetryService.devDeviceId,
+-			targetPopulation,
+-			this.productService.date ?? '',
+-			this.environmentService.isSessionsWindow ? WindowKind.Agents : WindowKind.Editor
+-		);
+-
+-		const extensionsFilterProvider = this.instantiationService.createInstance(CopilotAssignmentFilterProvider);
+-		this.tasSetupDisposables.add(extensionsFilterProvider);
+-		this.tasSetupDisposables.add(extensionsFilterProvider.onDidChangeFilters(() => this.refetchAssignments()));
+-
+-		// New TAS assignments API. Its endpoint is sourced from account entitlements and it
+-		// uses dedicated providers that emit the new userParam key names, so the legacy filter
+-		// keys never reach it. Its assignments are merged with the legacy provider's results.
+-		const assignmentsEndpoint = this.getAssignmentsEndpoint();
+-		this.assignmentsEndpoint = assignmentsEndpoint;
+-		let assignmentsFilterProviders: IExperimentationFilterProvider[] | undefined;
+-		if (assignmentsEndpoint) {
+-			const coreAssignmentsFilterProvider = new VSCodeCoreAssignmentsFilterProvider(
+-				this.productService.version,
+-				this.productService.nameLong,
+-				this.telemetryService.devDeviceId,
+-				targetPopulation,
+-				this.productService.date ?? '',
+-				this.environmentService.isSessionsWindow ? WindowKind.Agents : WindowKind.Editor
+-			);
+-			const githubAssignmentsFilterProvider = this.instantiationService.createInstance(GitHubCoreAssignmentsFilterProvider);
+-			this.tasSetupDisposables.add(githubAssignmentsFilterProvider);
+-			this.tasSetupDisposables.add(githubAssignmentsFilterProvider.onDidChangeFilters(() => this.refetchAssignments()));
+-			assignmentsFilterProviders = [
+-				coreAssignmentsFilterProvider,
+-				githubAssignmentsFilterProvider,
+-				{ getFilters: () => extensionsFilterProvider.getAssignmentsFilters() },
+-			];
+-		}
+-
+-		const tasConfig = this.productService.tasConfig!;
+-
+-		// tas-client ships as pure ESM; load it via a runtime-resolved URL so bundlers do not
+-		// rewrite the import (mirrors how the editor loads the `@vscode/diff` module).
+-		const tasClientUrl = resolveAmdNodeModulePath('tas-client', 'dist/tas-client.min.js');
+-		const tasClientModule = await import(/* webpackIgnore: true */ /* @vite-ignore */ `${tasClientUrl}`) as typeof import('tas-client');
+-
+-		// Measure the client-side latency of the first network call to the
+-		// Treatment Assignment Service. The fetch is triggered by constructing
+-		// the client, so start timing right before construction to exclude
+-		// module loading time from the measurement.
+-		const fetchStopWatch = StopWatch.create();
+-		const tasClient = new tasClientModule.ExperimentationService({
+-			filterProviders: [filterProvider, extensionsFilterProvider],
+-			telemetry,
+-			storageKey: ASSIGNMENT_STORAGE_KEY,
+-			keyValueStorage,
+-			assignmentContextTelemetryPropertyName: tasConfig.assignmentContextTelemetryPropertyName,
+-			telemetryEventName: tasConfig.telemetryEventName,
+-			endpoint: tasConfig.endpoint,
+-			extensionName: 'vscode-core',
+-			assignmentsEndpoint,
+-			assignmentsFilterProviders,
+-			// Route the assignments request through the main-process request service so it is
+-			// not subject to renderer CORS (parity with how core reaches api.github.com).
+-			assignmentsFetch: assignmentsEndpoint
+-				? (url, init) => (revoked ? Promise.resolve({ status: 0, json: async () => ({}) }) : service.assignmentsFetch(url, init))
+-				: undefined,
+-			refetchInterval: ASSIGNMENT_REFETCH_INTERVAL,
+-		});
+-
+-		await tasClient.initializePromise;
+-		tasClient.initialFetch.then(() => {
+-			if (generation !== this.setupGeneration) {
+-				return; // superseded by a newer setup
+-			}
+-			this.networkInitialized = true;
+-			this.logFetchLatency('initial', fetchStopWatch.elapsed());
+-		}).catch(() => undefined);
+-
+-		return tasClient;
+-	}
+-
+-	private logFetchLatency(fetchType: 'initial' | 'refetch', durationMs: number): void {
+-		type TASClientFetchLatencyData = {
+-			fetchType: string;
+-			durationMs: number;
+-		};
+-
+-		type TASClientFetchLatencyClassification = {
+-			owner: 'sbatten';
+-			comment: 'Measures the client-side latency of fetching treatment assignments from the experiment service (TAS)';
+-			fetchType: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'Whether this was the initial fetch or a refetch' };
+-			durationMs: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Time in milliseconds the fetch took to complete' };
+-		};
+-
+-		this.telemetryService.publicLog2<TASClientFetchLatencyData, TASClientFetchLatencyClassification>('tasClientFetchLatency', {
+-			fetchType,
+-			durationMs
+-		});
+-	}
+-
+-	private async refetchAssignments(): Promise<void> {
+-		if (!this.tasClient) {
+-			return; // Setup has not started, assignments will use latest filters
+-		}
+-
+-		// Await the client to be setup and the initial fetch to complete
+-		const tasClient = await this.tasClient;
+-		await tasClient.initialFetch;
+-
+-		// Refresh the assignments and measure the network latency of the refetch.
+-		const refetchStopWatch = StopWatch.create();
+-		await tasClient.getTreatmentVariableAsync('vscode', 'refresh', false);
+-		this.logFetchLatency('refetch', refetchStopWatch.elapsed());
+-	}
++	readonly onDidRefetchAssignments: Event<void> = Event.None;
+ 
+ 	async getCurrentExperiments(): Promise<string[] | undefined> {
+-		if (!this.tasClient) {
+-			return undefined;
+-		}
+-
+-		if (!this.experimentsEnabled) {
+-			return undefined;
+-		}
+-
+-		await this.tasClient;
+-
+-		return this.telemetry.assignmentContext;
++		return [];
+ 	}
+ 
+-	addTelemetryAssignmentFilter(filter: IAssignmentFilter): void {
+-		this.contextFilter.addFilter(filter);
++	async getTreatment<T extends string | number | boolean>(_name: string): Promise<T | undefined> {
++		return undefined;
+ 	}
+ 
+-	/** Stops a TAS client's auto-polling once it resolves. Safe to call with `undefined`. */
+-	private static disposeTasClient(client: Promise<TASClient> | undefined): void {
+-		client?.then(c => c.dispose()).catch(() => undefined);
++	async getTreatmentWithAssignment<T extends string | number | boolean>(_name: string): Promise<ITreatmentWithAssignment<T>> {
++		return { value: undefined, hasAssignment: Promise.resolve(false) };
+ 	}
++
++	addTelemetryAssignmentFilter(_filter: IAssignmentFilter): void { }
+ }
+@@ -612,16 +58 @@ export class WorkbenchAssignmentService extends Disposable implements IAssignmen
+ registerSingleton(IWorkbenchAssignmentService, WorkbenchAssignmentService, InstantiationType.Delayed);
+-
+-const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
+-registry.registerConfiguration({
+-	...workbenchConfigurationNodeBase,
+-	'properties': {
+-		'workbench.enableExperiments': {
+-			'type': 'boolean',
+-			'description': localize('workbench.enableExperiments', "Fetches experiments to run from a Microsoft online service."),
+-			'default': false,
+-			'scope': ConfigurationScope.APPLICATION,
+-			'restricted': true,
+-			'tags': ['usesOnlineServices']
+-		}
+-	}
+-});
+diff --git a/src/vs/workbench/services/environment/electron-browser/environmentService.ts b/src/vs/workbench/services/environment/electron-browser/environmentService.ts
+index b4ffe683..df9780bd 100644
+--- a/src/vs/workbench/services/environment/electron-browser/environmentService.ts
++++ b/src/vs/workbench/services/environment/electron-browser/environmentService.ts
+@@ -52,3 +52,2 @@ export interface INativeWorkbenchEnvironmentService extends IBrowserWorkbenchEnv
+ 	readonly crashReporterDirectory?: string;
+-	readonly crashReporterId?: string;
+ 
+diff --git a/src/vs/workbench/services/telemetry/browser/telemetryService.ts b/src/vs/workbench/services/telemetry/browser/telemetryService.ts
+index daa2c00f..6174fb14 100644
+--- a/src/vs/workbench/services/telemetry/browser/telemetryService.ts
++++ b/src/vs/workbench/services/telemetry/browser/telemetryService.ts
+@@ -5,159 +5,8 @@
+ 
+-import { Disposable } from '../../../../base/common/lifecycle.js';
+-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
++import { ICustomEndpointTelemetryService, ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
++import { NullEndpointTelemetryService, NullTelemetryServiceShape } from '../../../../platform/telemetry/common/telemetryUtils.js';
+ import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+-import { ILoggerService } from '../../../../platform/log/common/log.js';
+-import { IProductService } from '../../../../platform/product/common/productService.js';
+-import { IStorageService } from '../../../../platform/storage/common/storage.js';
+-import { OneDataSystemWebAppender } from '../../../../platform/telemetry/browser/1dsAppender.js';
+-import { ClassifiedEvent, IGDPRProperty, OmitMetadata, StrictPropertyCheck } from '../../../../platform/telemetry/common/gdprTypings.js';
+-import { ITelemetryData, ITelemetryService, TelemetryLevel, TELEMETRY_SETTING_ID } from '../../../../platform/telemetry/common/telemetry.js';
+-import { TelemetryLogAppender } from '../../../../platform/telemetry/common/telemetryLogAppender.js';
+-import { ITelemetryServiceConfig, TelemetryService as BaseTelemetryService } from '../../../../platform/telemetry/common/telemetryService.js';
+-import { getTelemetryLevel, isInternalTelemetry, isLoggingOnly, ITelemetryAppender, NullTelemetryService, supportsTelemetry } from '../../../../platform/telemetry/common/telemetryUtils.js';
+-import { IBrowserWorkbenchEnvironmentService } from '../../environment/browser/environmentService.js';
+-import { IRemoteAgentService } from '../../remote/common/remoteAgentService.js';
+-import { IMeteredConnectionService } from '../../../../platform/meteredConnection/common/meteredConnection.js';
+-import { mainWindow } from '../../../../base/browser/window.js';
+-import { resolveWorkbenchCommonProperties } from './workbenchCommonProperties.js';
+-import { experimentsEnabled } from '../common/workbenchTelemetryUtils.js';
+-import { IRequestService, NO_FETCH_TELEMETRY } from '../../../../platform/request/common/request.js';
+ 
+-export class TelemetryService extends Disposable implements ITelemetryService {
+-
+-	declare readonly _serviceBrand: undefined;
+-
+-	private impl: ITelemetryService = NullTelemetryService;
+-	public readonly sendErrorTelemetry = true;
+-
+-	get sessionId(): string { return this.impl.sessionId; }
+-	get machineId(): string { return this.impl.machineId; }
+-	get sqmId(): string { return this.impl.sqmId; }
+-	get devDeviceId(): string { return this.impl.devDeviceId; }
+-	get firstSessionDate(): string { return this.impl.firstSessionDate; }
+-	get msftInternal(): boolean | undefined { return this.impl.msftInternal; }
+-
+-	constructor(
+-		@IBrowserWorkbenchEnvironmentService environmentService: IBrowserWorkbenchEnvironmentService,
+-		@ILoggerService loggerService: ILoggerService,
+-		@IConfigurationService configurationService: IConfigurationService,
+-		@IStorageService storageService: IStorageService,
+-		@IProductService productService: IProductService,
+-		@IRemoteAgentService remoteAgentService: IRemoteAgentService,
+-		@IMeteredConnectionService meteredConnectionService: IMeteredConnectionService,
+-		@IRequestService requestService: IRequestService
+-	) {
+-		super();
+-
+-		this.impl = this.initializeService(environmentService, loggerService, configurationService, storageService, productService, remoteAgentService, meteredConnectionService);
+-
+-		// When the level changes it could change from off to on and we want to make sure telemetry is properly intialized
+-		this._register(configurationService.onDidChangeConfiguration(e => {
+-			if (e.affectsConfiguration(TELEMETRY_SETTING_ID)) {
+-				this.impl = this.initializeService(environmentService, loggerService, configurationService, storageService, productService, remoteAgentService, meteredConnectionService);
+-			}
+-		}));
+-
+-		this._register(requestService.onDidCompleteRequest(e => {
+-			if (e.callSite === NO_FETCH_TELEMETRY || productService.quality === 'stable') {
+-				return;
+-			}
+-			type FetchCallClassification = {
+-				owner: 'lramos15';
+-				comment: 'Tracks fetch requests made through the request service';
+-				callSite: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'The call site that initiated the request.' };
+-				latency: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'Time in milliseconds for the request to complete.' };
+-				statusCode: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; isMeasurement: true; comment: 'HTTP status code of the response.' };
+-			};
+-			type FetchCallEvent = {
+-				callSite: string;
+-				latency: number;
+-				statusCode: number | undefined;
+-			};
+-			this.publicLog2<FetchCallEvent, FetchCallClassification>('fetchCall', {
+-				callSite: e.callSite,
+-				latency: e.latency,
+-				statusCode: e.statusCode,
+-			});
+-		}));
+-	}
+-
+-	/**
+-	 * Initializes the telemetry service to be a full fledged service.
+-	 * This is only done once and only when telemetry is enabled as this will also ping the endpoint to
+-	 * ensure its not adblocked and we can send telemetry
+-	 */
+-	private initializeService(
+-		environmentService: IBrowserWorkbenchEnvironmentService,
+-		loggerService: ILoggerService,
+-		configurationService: IConfigurationService,
+-		storageService: IStorageService,
+-		productService: IProductService,
+-		remoteAgentService: IRemoteAgentService,
+-		meteredConnectionService: IMeteredConnectionService
+-	) {
+-		const telemetrySupported = supportsTelemetry(productService, environmentService) && productService.aiConfig?.ariaKey;
+-		if (telemetrySupported && getTelemetryLevel(configurationService) !== TelemetryLevel.NONE && this.impl === NullTelemetryService) {
+-			// If remote server is present send telemetry through that, else use the client side appender
+-			const appenders: ITelemetryAppender[] = [];
+-			const isInternal = isInternalTelemetry(productService, configurationService);
+-			if (!isLoggingOnly(productService, environmentService)) {
+-				if (remoteAgentService.getConnection() !== null) {
+-					const remoteTelemetryProvider = {
+-						log: remoteAgentService.logTelemetry.bind(remoteAgentService),
+-						flush: remoteAgentService.flushTelemetry.bind(remoteAgentService)
+-					};
+-					appenders.push(remoteTelemetryProvider);
+-				} else {
+-					appenders.push(new OneDataSystemWebAppender(isInternal, 'monacoworkbench', null, productService.aiConfig?.ariaKey));
+-				}
+-			}
+-			appenders.push(new TelemetryLogAppender('', false, loggerService, environmentService, productService));
+-			const config: ITelemetryServiceConfig = {
+-				appenders,
+-				commonProperties: resolveWorkbenchCommonProperties(storageService, productService, environmentService, isInternal, environmentService.options && environmentService.options.resolveCommonTelemetryProperties),
+-				// Use the web origin as a cleanup pattern (analogous to appRoot on desktop).
+-				// This strips the origin from web URLs in stack traces so the useful
+-				// relative path (e.g. /static/build/bundle.js:1:200953) is preserved
+-				// for debugging, while the origin itself is removed.
+-				piiPaths: [mainWindow.location.origin],
+-				sendErrorTelemetry: this.sendErrorTelemetry,
+-				waitForExperimentProperties: experimentsEnabled(configurationService, productService, environmentService),
+-				meteredConnectionService,
+-			};
+-
+-			return this._register(new BaseTelemetryService(config, configurationService, productService));
+-		}
+-		return this.impl;
+-	}
+-
+-	setExperimentProperty(name: string, value: string): void {
+-		return this.impl.setExperimentProperty(name, value);
+-	}
+-
+-	setCommonProperty(name: string, value: string | boolean | undefined): void {
+-		this.impl.setCommonProperty(name, value);
+-	}
+-
+-	get telemetryLevel(): TelemetryLevel {
+-		return this.impl.telemetryLevel;
+-	}
+-
+-	publicLog(eventName: string, data?: ITelemetryData) {
+-		this.impl.publicLog(eventName, data);
+-	}
+-
+-	publicLog2<E extends ClassifiedEvent<OmitMetadata<T>> = never, T extends IGDPRProperty = never>(eventName: string, data?: StrictPropertyCheck<T, E>) {
+-		this.publicLog(eventName, data as ITelemetryData);
+-	}
+-
+-	publicLogError(errorEventName: string, data?: ITelemetryData) {
+-		this.impl.publicLog(errorEventName, data);
+-	}
+-
+-	publicLogError2<E extends ClassifiedEvent<OmitMetadata<T>> = never, T extends IGDPRProperty = never>(eventName: string, data?: StrictPropertyCheck<T, E>) {
+-		this.publicLogError(eventName, data as ITelemetryData);
+-	}
+-}
+-
+-registerSingleton(ITelemetryService, TelemetryService, InstantiationType.Delayed);
++// Telemetry is removed from this build: nothing is collected or sent.
++registerSingleton(ITelemetryService, NullTelemetryServiceShape, InstantiationType.Delayed);
++registerSingleton(ICustomEndpointTelemetryService, NullEndpointTelemetryService, InstantiationType.Delayed);
+diff --git a/src/vs/workbench/workbench.common.main.ts b/src/vs/workbench/workbench.common.main.ts
+index 199aca70..08171b72 100644
+--- a/src/vs/workbench/workbench.common.main.ts
++++ b/src/vs/workbench/workbench.common.main.ts
+@@ -206,7 +206,3 @@ import './services/policies/browser/managedSettingsUpdate.contribution.js';
+ 
+-// Policy Telemetry
+-import './services/policies/browser/policyTelemetry.contribution.js';
+ 
+-// Telemetry
+-import './contrib/telemetry/browser/telemetry.contribution.js';
+ 
+diff --git a/src/vs/workbench/workbench.desktop.main.ts b/src/vs/workbench/workbench.desktop.main.ts
+index 5278709d..4f85095f 100644
+--- a/src/vs/workbench/workbench.desktop.main.ts
++++ b/src/vs/workbench/workbench.desktop.main.ts
+@@ -66,3 +66,3 @@ import './services/secrets/electron-browser/secretStorageService.js';
+ import './services/localization/electron-browser/languagePackService.js';
+-import './services/telemetry/electron-browser/telemetryService.js';
++import './services/telemetry/browser/telemetryService.js';
+ import './services/extensions/electron-browser/extensionHostStarter.js';
+@@ -86,3 +86,2 @@ import '../platform/diagnostics/electron-browser/diagnosticsService.js';
+ import '../platform/profiling/electron-browser/profilingService.js';
+-import '../platform/telemetry/electron-browser/customEndpointTelemetryService.js';
+ import '../platform/remoteTunnel/electron-browser/remoteTunnelService.js';
+@@ -162,4 +161,4 @@ import './contrib/userDataSync/electron-browser/userDataSync.contribution.js';
+ // Tags
+-import './contrib/tags/electron-browser/workspaceTagsService.js';
+-import './contrib/tags/electron-browser/tags.contribution.js';
++import './contrib/tags/browser/workspaceTagsService.js';
++
+ // Performance
+diff --git a/src/vs/workbench/workbench.web.main.ts b/src/vs/workbench/workbench.web.main.ts
+index ae70f342..32e277dc 100644
+--- a/src/vs/workbench/workbench.web.main.ts
++++ b/src/vs/workbench/workbench.web.main.ts
+@@ -92,4 +92,2 @@ import { UserDataAutoSyncService } from '../platform/userDataSync/common/userDat
+ import { AccessibilityService } from '../platform/accessibility/browser/accessibilityService.js';
+-import { ICustomEndpointTelemetryService } from '../platform/telemetry/common/telemetry.js';
+-import { NullEndpointTelemetryService } from '../platform/telemetry/common/telemetryUtils.js';
+ import { ITitleService } from './services/title/browser/titleService.js';
+@@ -124,3 +122,2 @@ registerSingleton(IExtensionTipsService, ExtensionTipsService, InstantiationType
+ registerSingleton(ITimerService, TimerService, InstantiationType.Delayed);
+-registerSingleton(ICustomEndpointTelemetryService, NullEndpointTelemetryService, InstantiationType.Delayed);
+ registerSingleton(IDiagnosticsService, NullDiagnosticsService, InstantiationType.Delayed);

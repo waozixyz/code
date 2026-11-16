@@ -2,6 +2,18 @@
 
 # Getting all telemetry out
 
+> **In this fork telemetry is removed, not just turned off.** `patches/90-telemetry-remove.json` and
+> `patches/90-telemetry-remove.patch` delete the telemetry service and its 1DS/Application Insights
+> appenders, the telemetry IPC and log appenders, error and workspace-tags telemetry, the debug
+> adapter telemetry app, the experiments (TAS) service, crash report uploads and the crash reporter
+> id, and the `@microsoft/1ds-*` and `tas-client` packages. The `telemetry.telemetryLevel`,
+> `telemetry.enableTelemetry`, `telemetry.enableCrashReporter`, `telemetry.editStats.*` and
+> `workbench.enableExperiments` settings no longer exist, and the telemetry level is always off.
+> Built-in extensions are bundled with replacements that send and fetch nothing in place of
+> `@vscode/extension-telemetry` and `vscode-tas-client`. Third-party extensions, and the prebuilt
+> JavaScript debugger downloaded from its release, can still contain their own telemetry code;
+> they only report when telemetry is enabled, which this build never reports.
+
 This page explains how VSCodium handles telemetry and how it enhances your privacy.
 
 ## Table of contents

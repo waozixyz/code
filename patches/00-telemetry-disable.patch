@@ -1,17 +1,3 @@
-diff --git a/src/vs/platform/telemetry/common/telemetryService.ts b/src/vs/platform/telemetry/common/telemetryService.ts
-index ef676bd..4feb98b 100644
---- a/src/vs/platform/telemetry/common/telemetryService.ts
-+++ b/src/vs/platform/telemetry/common/telemetryService.ts
-@@ -219,3 +219,3 @@ configurationRegistry.registerConfiguration({
- 			'markdownDescription': getTelemetryLevelSettingDescription(),
--			'default': TelemetryConfiguration.ON,
-+			'default': TelemetryConfiguration.OFF,
- 			'restricted': true,
-@@ -245,3 +245,3 @@ configurationRegistry.registerConfiguration({
- 					localize('telemetry.enableTelemetryMd', "Enable diagnostic data to be collected. This helps us to better understand how {0} is performing and where improvements need to be made. [Read more]({1}) about what we collect and our privacy statement.", product.nameLong, product.privacyStatementUrl),
--			'default': true,
-+			'default': false,
- 			'restricted': true,
 diff --git a/src/vs/workbench/browser/workbench.contribution.ts b/src/vs/workbench/browser/workbench.contribution.ts
 index d09ab3f..f37edd6 100644
 --- a/src/vs/workbench/browser/workbench.contribution.ts
