@@ -17,6 +17,8 @@
 
 **This is not a fork. This is a repository of scripts to automatically build [Microsoft's `vscode` repository](https://github.com/microsoft/vscode) into freely-licensed binaries with a community-driven default configuration.**
 
+> **waozixyz fork:** this build also ships the [Ziran language extension](https://github.com/ziranlang/ziran-vscode) built in. See [ziran/README.md](ziran/README.md).
+
 ## Table of Contents
 
 - [Download/Install](#download-install)

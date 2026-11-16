@@ -126,6 +126,9 @@ setpath_json "product" "tunnelApplicationConfig" '{}'
 jsonTmp=$( jq -s '.[0] * .[1]' product.json ../product.json )
 echo "${jsonTmp}" > product.json && unset jsonTmp
 
+# ship the Ziran language extension built in
+../ziran/prepare_extension.sh
+
 cat product.json
 # }}}
 
